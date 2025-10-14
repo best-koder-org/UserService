@@ -103,20 +103,26 @@ namespace UserService.Controllers
                     .Take(searchDto.PageSize)
                     .ToListAsync();
 
-                var results = profiles.Select(p => new UserProfileSummaryDto
+                var results = profiles.Select(p =>
                 {
-                    Id = p.Id,
-                    Name = p.Name,
-                    Age = DateTime.Today.Year - p.DateOfBirth.Year - 
-                          (p.DateOfBirth.Date > DateTime.Today.AddYears(-(DateTime.Today.Year - p.DateOfBirth.Year)) ? 1 : 0),
-                    City = p.City,
-                    PrimaryPhotoUrl = p.PrimaryPhotoUrl,
-                    Bio = p.Bio?.Length > 150 ? p.Bio.Substring(0, 150) + "..." : p.Bio,
-                    Occupation = p.Occupation,
-                    Interests = JsonSerializer.Deserialize<List<string>>(p.Interests ?? "[]") ?? new List<string>(),
-                    IsVerified = p.IsVerified,
-                    IsOnline = p.IsOnline,
-                    LastActiveAt = p.LastActiveAt
+                    var bio = p.Bio ?? string.Empty;
+                    var trimmedBio = bio.Length > 150 ? bio.Substring(0, 150) + "..." : bio;
+
+                    return new UserProfileSummaryDto
+                    {
+                        Id = p.Id,
+                        Name = p.Name ?? string.Empty,
+                        Age = DateTime.Today.Year - p.DateOfBirth.Year -
+                              (p.DateOfBirth.Date > DateTime.Today.AddYears(-(DateTime.Today.Year - p.DateOfBirth.Year)) ? 1 : 0),
+                        City = p.City ?? string.Empty,
+                        PrimaryPhotoUrl = p.PrimaryPhotoUrl ?? string.Empty,
+                        Bio = trimmedBio,
+                        Occupation = p.Occupation ?? string.Empty,
+                        Interests = JsonSerializer.Deserialize<List<string>>(p.Interests ?? "[]") ?? new List<string>(),
+                        IsVerified = p.IsVerified,
+                        IsOnline = p.IsOnline,
+                        LastActiveAt = p.LastActiveAt
+                    };
                 }).ToList();
 
                 return Ok(new SearchResultDto<UserProfileSummaryDto>

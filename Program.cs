@@ -1,14 +1,12 @@
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.IdentityModel.Tokens;
-using System.Security.Cryptography;
-using System.Text;
 using UserService.Data;
 using UserService.Services;
+using UserService.Extensions;
+using System.Threading.Tasks;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,48 +42,36 @@ else
 builder.Services.AddScoped<IPhotoService, PhotoService>();
 builder.Services.AddScoped<IVerificationService, VerificationService>();
 
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new RsaSecurityKey(GetPublicKey())
-        };
-        options.Events = new JwtBearerEvents
-        {
-            OnAuthenticationFailed = context => {
-                var logger = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("JwtAuth");
-                logger.LogError(context.Exception, "JWT Auth failed");
-                return Task.CompletedTask;
-            },
-            OnTokenValidated = context => {
-                var logger = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("JwtAuth");
-                logger.LogInformation($"JWT Token validated for: {context.Principal?.Identity?.Name}");
-                return Task.CompletedTask;
-            },
-            OnChallenge = context => {
-                var logger = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("JwtAuth");
-                logger.LogWarning($"JWT Challenge: {context.Error}, {context.ErrorDescription}");
-                return Task.CompletedTask;
-            }
-        };
-    });
-
-RSA GetPublicKey()
+builder.Services.AddKeycloakAuthentication(builder.Configuration, options =>
 {
-    var publicKey = System.IO.File.ReadAllText("public.key");
-    var rsa = RSA.Create();
-    rsa.ImportFromPem(publicKey);
-    return rsa;
-}
+    options.Events = new JwtBearerEvents
+    {
+        OnAuthenticationFailed = context =>
+        {
+            var logger = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("JwtAuth");
+            logger.LogError(context.Exception, "JWT Auth failed");
+            return Task.CompletedTask;
+        },
+        OnTokenValidated = context =>
+        {
+            var logger = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("JwtAuth");
+            logger.LogInformation($"JWT Token validated for: {context.Principal?.Identity?.Name}");
+            return Task.CompletedTask;
+        },
+        OnChallenge = context =>
+        {
+            var logger = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("JwtAuth");
+            logger.LogWarning($"JWT Challenge: {context.Error}, {context.ErrorDescription}");
+            return Task.CompletedTask;
+        }
+    };
+
+    options.TokenValidationParameters.ClockSkew = TimeSpan.Zero;
+});
 
 builder.Services.AddControllers();
+builder.Services.AddHealthChecks();
+builder.Services.AddAuthorization();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -147,9 +133,5 @@ app.UseCors(policy =>
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-// Add health check endpoint
-app.MapGet("/health", async context =>
-{
-    await context.Response.WriteAsync("Healthy");
-});
+app.MapHealthChecks("/health");
 app.Run();

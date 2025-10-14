@@ -18,9 +18,6 @@ COPY --from=build-env /app/out .
 # Copy the XML documentation file for Swagger from publish output
 COPY --from=build-env /app/out/UserService.xml ./UserService.xml
 
-# Copy the public key for JWT validation
-COPY public.key ./public.key
-
 # Expose the port and run the application
 EXPOSE 8082
 ENTRYPOINT ["dotnet", "UserService.dll"]
