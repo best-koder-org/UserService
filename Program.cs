@@ -1,3 +1,6 @@
+using DatingApp.Shared.Middleware;
+using FluentValidation;
+using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
@@ -6,9 +9,16 @@ using Microsoft.Extensions.DependencyInjection;
 using UserService.Data;
 using UserService.Services;
 using UserService.Extensions;
+using System.Reflection;
 using System.Threading.Tasks;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Logging.AddSimpleConsole(options =>
+{
+    options.IncludeScopes = true;
+    options.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
+});
 
 // Add CORS policy
 builder.Services.AddCors(options =>
@@ -41,6 +51,13 @@ else
 // Register application services
 builder.Services.AddScoped<IPhotoService, PhotoService>();
 builder.Services.AddScoped<IVerificationService, VerificationService>();
+builder.Services.AddCorrelationIds();
+
+// Add CQRS with MediatR
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()));
+
+// Add FluentValidation
+builder.Services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
 
 builder.Services.AddKeycloakAuthentication(builder.Configuration, options =>
 {
@@ -130,6 +147,7 @@ app.UseCors(policy =>
     policy.AllowAnyOrigin()
           .AllowAnyMethod()
           .AllowAnyHeader());
+app.UseCorrelationIds();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

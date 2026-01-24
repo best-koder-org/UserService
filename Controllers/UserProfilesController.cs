@@ -1,10 +1,14 @@
 // filepath: UserService/Controllers/UserProfilesController.cs
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using UserService.Commands;
+using UserService.Common;
 using UserService.Data;
 using UserService.Models;
 using UserService.DTOs;
+using UserService.Queries;
 using UserService.Services;
 using System.Text.Json;
 
@@ -18,269 +22,130 @@ namespace UserService.Controllers
         private readonly IPhotoService _photoService;
         private readonly IVerificationService _verificationService;
         private readonly ILogger<UserProfilesController> _logger;
+        private readonly IMediator _mediator;
 
         public UserProfilesController(
             ApplicationDbContext context,
             IPhotoService photoService,
             IVerificationService verificationService,
-            ILogger<UserProfilesController> logger)
+            ILogger<UserProfilesController> logger,
+            IMediator mediator)
         {
             _context = context;
             _photoService = photoService;
             _verificationService = verificationService;
             _logger = logger;
+            _mediator = mediator;
         }
 
         /// <summary>
         /// Search and retrieve user profiles with advanced filtering.
         /// </summary>
         [HttpPost("search")]
-        public async Task<ActionResult<SearchResultDto<UserProfileSummaryDto>>> SearchUserProfiles([FromBody] SearchUsersDto searchDto)
+        public async Task<ActionResult<ApiResponse<SearchResultDto<UserProfileSummaryDto>>>> SearchUserProfiles([FromBody] SearchUsersDto searchDto)
         {
-            try
+            var query = new SearchUserProfilesQuery
             {
-                var query = _context.UserProfiles.Where(p => p.IsActive);
+                MinAge = searchDto.MinAge,
+                MaxAge = searchDto.MaxAge,
+                Gender = searchDto.Gender,
+                Education = searchDto.Education,
+                Location = searchDto.Location,
+                IsVerified = searchDto.IsVerified,
+                IsOnline = searchDto.IsOnline,
+                SortBy = searchDto.SortBy,
+                SortOrder = searchDto.SortOrder,
+                Page = searchDto.Page,
+                PageSize = searchDto.PageSize
+            };
 
-                // Apply filters
-                if (searchDto.MinAge.HasValue)
-                {
-                    var maxBirthDate = DateTime.Today.AddYears(-searchDto.MinAge.Value);
-                    query = query.Where(p => p.DateOfBirth <= maxBirthDate);
-                }
+            var result = await _mediator.Send(query);
 
-                if (searchDto.MaxAge.HasValue)
-                {
-                    var minBirthDate = DateTime.Today.AddYears(-searchDto.MaxAge.Value - 1);
-                    query = query.Where(p => p.DateOfBirth >= minBirthDate);
-                }
-
-                if (!string.IsNullOrEmpty(searchDto.Gender))
-                {
-                    query = query.Where(p => p.Gender == searchDto.Gender);
-                }
-
-                if (!string.IsNullOrEmpty(searchDto.Education))
-                {
-                    query = query.Where(p => p.Education.Contains(searchDto.Education));
-                }
-
-                if (!string.IsNullOrEmpty(searchDto.Location))
-                {
-                    query = query.Where(p => p.City.Contains(searchDto.Location) || 
-                                           p.State.Contains(searchDto.Location) || 
-                                           p.Country.Contains(searchDto.Location));
-                }
-
-                if (searchDto.IsVerified.HasValue)
-                {
-                    query = query.Where(p => p.IsVerified == searchDto.IsVerified.Value);
-                }
-
-                if (searchDto.IsOnline.HasValue)
-                {
-                    query = query.Where(p => p.IsOnline == searchDto.IsOnline.Value);
-                }
-
-                // Apply sorting
-                query = searchDto.SortBy.ToLower() switch
-                {
-                    "age" => searchDto.SortOrder == "asc" ? 
-                        query.OrderBy(p => p.DateOfBirth) : 
-                        query.OrderByDescending(p => p.DateOfBirth),
-                    "verified" => searchDto.SortOrder == "asc" ? 
-                        query.OrderBy(p => p.IsVerified) : 
-                        query.OrderByDescending(p => p.IsVerified),
-                    _ => searchDto.SortOrder == "asc" ? 
-                        query.OrderBy(p => p.LastActiveAt) : 
-                        query.OrderByDescending(p => p.LastActiveAt)
-                };
-
-                var totalCount = await query.CountAsync();
-                var totalPages = (int)Math.Ceiling((double)totalCount / searchDto.PageSize);
-
-                var profiles = await query
-                    .Skip((searchDto.Page - 1) * searchDto.PageSize)
-                    .Take(searchDto.PageSize)
-                    .ToListAsync();
-
-                var results = profiles.Select(p =>
-                {
-                    var bio = p.Bio ?? string.Empty;
-                    var trimmedBio = bio.Length > 150 ? bio.Substring(0, 150) + "..." : bio;
-
-                    return new UserProfileSummaryDto
-                    {
-                        Id = p.Id,
-                        Name = p.Name ?? string.Empty,
-                        Age = DateTime.Today.Year - p.DateOfBirth.Year -
-                              (p.DateOfBirth.Date > DateTime.Today.AddYears(-(DateTime.Today.Year - p.DateOfBirth.Year)) ? 1 : 0),
-                        City = p.City ?? string.Empty,
-                        PrimaryPhotoUrl = p.PrimaryPhotoUrl ?? string.Empty,
-                        Bio = trimmedBio,
-                        Occupation = p.Occupation ?? string.Empty,
-                        Interests = JsonSerializer.Deserialize<List<string>>(p.Interests ?? "[]") ?? new List<string>(),
-                        IsVerified = p.IsVerified,
-                        IsOnline = p.IsOnline,
-                        LastActiveAt = p.LastActiveAt
-                    };
-                }).ToList();
-
-                return Ok(new SearchResultDto<UserProfileSummaryDto>
-                {
-                    Results = results,
-                    TotalCount = totalCount,
-                    Page = searchDto.Page,
-                    PageSize = searchDto.PageSize,
-                    TotalPages = totalPages,
-                    HasNext = searchDto.Page < totalPages,
-                    HasPrevious = searchDto.Page > 1
-                });
-            }
-            catch (Exception ex)
+            if (result.IsFailure)
             {
-                _logger.LogError(ex, "Error searching user profiles");
-                return StatusCode(500, "Error searching user profiles");
+                return StatusCode(500, ApiResponse<SearchResultDto<UserProfileSummaryDto>>.FailureResult(
+                    result.Error ?? "Error searching user profiles"));
             }
+
+            return Ok(ApiResponse<SearchResultDto<UserProfileSummaryDto>>.SuccessResult(result.Value!));
         }
 
         /// <summary>
         /// Retrieves a specific user profile by ID with full details.
         /// </summary>
         [HttpGet("{id:int}")]
-        public async Task<ActionResult<UserProfileDetailDto>> GetUserProfile([FromRoute] int id)
+        public async Task<ActionResult<ApiResponse<UserProfileDetailDto>>> GetUserProfile([FromRoute] int id)
         {
-            try
+            var query = new GetUserProfileQuery(id);
+            var result = await _mediator.Send(query);
+
+            if (result.IsFailure)
             {
-                var userProfile = await _context.UserProfiles.FindAsync(id);
-
-                if (userProfile == null || !userProfile.IsActive)
-                {
-                    return NotFound();
-                }
-
-                var profileDto = new UserProfileDetailDto
-                {
-                    Id = userProfile.Id,
-                    Name = userProfile.Name,
-                    Email = userProfile.Email,
-                    Bio = userProfile.Bio,
-                    Age = userProfile.Age,
-                    Gender = userProfile.Gender,
-                    Preferences = userProfile.Preferences,
-                    SexualOrientation = userProfile.SexualOrientation,
-                    City = userProfile.City,
-                    State = userProfile.State,
-                    Country = userProfile.Country,
-                    PhotoUrls = userProfile.PhotoUrlList,
-                    PrimaryPhotoUrl = userProfile.PrimaryPhotoUrl,
-                    Occupation = userProfile.Occupation,
-                    Company = userProfile.Company,
-                    Education = userProfile.Education,
-                    School = userProfile.School,
-                    Height = userProfile.Height,
-                    Religion = userProfile.Religion,
-                    Ethnicity = userProfile.Ethnicity,
-                    SmokingStatus = userProfile.SmokingStatus,
-                    DrinkingStatus = userProfile.DrinkingStatus,
-                    WantsChildren = userProfile.WantsChildren,
-                    HasChildren = userProfile.HasChildren,
-                    RelationshipType = userProfile.RelationshipType,
-                    Interests = userProfile.InterestsList,
-                    Languages = JsonSerializer.Deserialize<List<string>>(userProfile.Languages ?? "[]") ?? new List<string>(),
-                    HobbyList = userProfile.HobbyList,
-                    InstagramHandle = userProfile.InstagramHandle,
-                    SpotifyTopArtists = userProfile.SpotifyTopArtists,
-                    IsVerified = userProfile.IsVerified,
-                    IsPhoneVerified = userProfile.IsPhoneVerified,
-                    IsEmailVerified = userProfile.IsEmailVerified,
-                    IsPhotoVerified = userProfile.IsPhotoVerified,
-                    IsPremium = userProfile.IsPremium,
-                    SubscriptionType = userProfile.SubscriptionType,
-                    CreatedAt = userProfile.CreatedAt,
-                    LastActiveAt = userProfile.LastActiveAt,
-                    IsOnline = userProfile.IsOnline
-                };
-
-                return Ok(profileDto);
+                return NotFound(ApiResponse<UserProfileDetailDto>.FailureResult(
+                    result.Error ?? "User profile not found", "NOT_FOUND"));
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error retrieving user profile {id}");
-                return StatusCode(500, "Error retrieving user profile");
-            }
+
+            return Ok(ApiResponse<UserProfileDetailDto>.SuccessResult(result.Value!));
         }
 
         /// <summary>
         /// Creates a new user profile.
         /// </summary>
         [HttpPost]
-        public async Task<ActionResult<UserProfileDetailDto>> CreateUserProfile([FromBody] CreateUserProfileDto createDto)
+        public async Task<ActionResult<ApiResponse<UserProfileDetailDto>>> CreateUserProfile([FromBody] CreateUserProfileDto createDto)
         {
-            try
+            var command = new CreateUserProfileCommand
             {
-                if (!ModelState.IsValid)
-                {
-                    return BadRequest(ModelState);
-                }
+                Name = createDto.Name,
+                Email = createDto.Email,
+                Bio = createDto.Bio,
+                Gender = createDto.Gender,
+                Preferences = createDto.Preferences,
+                DateOfBirth = createDto.DateOfBirth,
+                City = createDto.City,
+                State = createDto.State,
+                Country = createDto.Country,
+                Latitude = createDto.Latitude,
+                Longitude = createDto.Longitude,
+                Occupation = createDto.Occupation,
+                Education = createDto.Education,
+                Interests = createDto.Interests,
+                Languages = createDto.Languages,
+                Height = createDto.Height,
+                Religion = createDto.Religion,
+                SmokingStatus = createDto.SmokingStatus,
+                DrinkingStatus = createDto.DrinkingStatus,
+                WantsChildren = createDto.WantsChildren,
+                HasChildren = createDto.HasChildren,
+                RelationshipType = createDto.RelationshipType
+            };
 
-                // Check if email already exists
-                if (await _context.UserProfiles.AnyAsync(p => p.Email == createDto.Email))
-                {
-                    return Conflict("Email already exists");
-                }
+            var result = await _mediator.Send(command);
 
-                // Validate age (must be 18+)
-                var age = DateTime.Today.Year - createDto.DateOfBirth.Year;
-                if (createDto.DateOfBirth.Date > DateTime.Today.AddYears(-age)) age--;
-                if (age < 18)
-                {
-                    return BadRequest("Must be 18 or older");
-                }
-
-                var userProfile = new UserProfile
-                {
-                    Name = createDto.Name,
-                    Email = createDto.Email,
-                    Bio = createDto.Bio,
-                    Gender = createDto.Gender,
-                    Preferences = createDto.Preferences,
-                    DateOfBirth = createDto.DateOfBirth,
-                    City = createDto.City,
-                    State = createDto.State,
-                    Country = createDto.Country,
-                    Latitude = createDto.Latitude,
-                    Longitude = createDto.Longitude,
-                    Occupation = createDto.Occupation,
-                    Education = createDto.Education,
-                    Height = createDto.Height,
-                    Religion = createDto.Religion,
-                    SmokingStatus = createDto.SmokingStatus,
-                    DrinkingStatus = createDto.DrinkingStatus,
-                    WantsChildren = createDto.WantsChildren,
-                    HasChildren = createDto.HasChildren,
-                    RelationshipType = createDto.RelationshipType,
-                    Interests = JsonSerializer.Serialize(createDto.Interests),
-                    Languages = JsonSerializer.Serialize(createDto.Languages),
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow,
-                    LastActiveAt = DateTime.UtcNow,
-                    IsActive = true,
-                    IsOnline = true
-                };
-
-                _context.UserProfiles.Add(userProfile);
-                await _context.SaveChangesAsync();
-
-                _logger.LogInformation($"Created new user profile with ID {userProfile.Id}");
-
-                return CreatedAtAction(nameof(GetUserProfile), new { id = userProfile.Id }, 
-                    await GetUserProfile(userProfile.Id));
-            }
-            catch (Exception ex)
+            if (result.IsFailure)
             {
-                _logger.LogError(ex, "Error creating user profile");
-                return StatusCode(500, "Error creating user profile");
+                if (result.Error?.Contains("Email already exists") == true)
+                {
+                    return Conflict(ApiResponse<UserProfileDetailDto>.FailureResult(
+                        "Email already exists", "EMAIL_EXISTS"));
+                }
+
+                if (result.Error?.Contains("18 or older") == true)
+                {
+                    return BadRequest(ApiResponse<UserProfileDetailDto>.FailureResult(
+                        "Must be 18 or older", "AGE_REQUIREMENT"));
+                }
+
+                return BadRequest(ApiResponse<UserProfileDetailDto>.FailureResult(
+                    result.Error ?? "Failed to create user profile"));
             }
+
+            return CreatedAtAction(
+                nameof(GetUserProfile),
+                new { id = result.Value!.Id },
+                ApiResponse<UserProfileDetailDto>.SuccessResult(
+                    result.Value,
+                    "User profile created successfully"));
         }
 
         /// <summary>
