@@ -179,6 +179,10 @@ namespace UserService.DTOs
         public DateTime CreatedAt { get; set; }
         public DateTime LastActiveAt { get; set; }
         public bool IsOnline { get; set; }
+        
+        // Onboarding wizard status
+        public Models.OnboardingStatus OnboardingStatus { get; set; }
+        public DateTime? OnboardingCompletedAt { get; set; }
     }
     
     public class SearchUsersDto

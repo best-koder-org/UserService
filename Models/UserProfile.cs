@@ -9,6 +9,11 @@ namespace UserService.Models
     {
         public int Id { get; set; }
         
+        /// <summary>
+        /// Keycloak user ID - links profile to auth identity
+        /// </summary>
+        public Guid UserId { get; set; }
+        
         [Required]
         [StringLength(100)]
         public string Name { get; set; } = string.Empty;
@@ -152,6 +157,10 @@ namespace UserService.Models
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
         public DateTime LastActiveAt { get; set; } = DateTime.UtcNow;
         public DateTime? LastLocationUpdate { get; set; }
+        
+        // Onboarding wizard progress
+        public OnboardingStatus OnboardingStatus { get; set; } = OnboardingStatus.Incomplete;
+        public DateTime? OnboardingCompletedAt { get; set; }
         
         public bool IsActive { get; set; } = true;
         public bool IsOnline { get; set; } = false;
