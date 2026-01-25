@@ -12,5 +12,6 @@ namespace UserService.Data
         }
 
         public DbSet<UserProfile> UserProfiles { get; set; }
+        public DbSet<MatchPreferences> MatchPreferences { get; set; }
     }
 }
