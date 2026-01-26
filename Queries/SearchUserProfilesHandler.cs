@@ -26,7 +26,10 @@ public class SearchUserProfilesHandler : IRequestHandler<SearchUserProfilesQuery
     {
         try
         {
-            var query = _context.UserProfiles.Where(p => p.IsActive);
+            // Use AsNoTracking() for read-only query optimization
+            var query = _context.UserProfiles
+                .AsNoTracking()
+                .Where(p => p.IsActive);
 
             // Apply filters
             if (request.MinAge.HasValue)

@@ -21,6 +21,7 @@ namespace UserService.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IPhotoService _photoService;
         private readonly IVerificationService _verificationService;
+        private readonly IAccountDeletionService _accountDeletionService;
         private readonly ILogger<UserProfilesController> _logger;
         private readonly IMediator _mediator;
 
@@ -28,12 +29,14 @@ namespace UserService.Controllers
             ApplicationDbContext context,
             IPhotoService photoService,
             IVerificationService verificationService,
+            IAccountDeletionService accountDeletionService,
             ILogger<UserProfilesController> logger,
             IMediator mediator)
         {
             _context = context;
             _photoService = photoService;
             _verificationService = verificationService;
+            _accountDeletionService = accountDeletionService;
             _logger = logger;
             _mediator = mediator;
         }
@@ -471,32 +474,69 @@ namespace UserService.Controllers
         }
 
         /// <summary>
-        /// Deactivates a user profile.
+        /// Deletes (or deactivates) a user account and all associated data across services.
         /// </summary>
+        /// <param name="id">User profile ID to delete</param>
+        /// <param name="request">Deletion request with options and confirmation</param>
+        /// <returns>Summary of deletion operations</returns>
         [HttpDelete("{id:int}")]
-        public async Task<IActionResult> DeactivateUserProfile(int id)
+        [Authorize]
+        public async Task<ActionResult<AccountDeletionResult>> DeleteAccount(int id, [FromBody] AccountDeletionRequest? request = null)
         {
             try
             {
+                // Authorization: User can only delete their own account
                 var userProfile = await _context.UserProfiles.FindAsync(id);
                 if (userProfile == null)
                 {
-                    return NotFound();
+                    return NotFound(new AccountDeletionResult
+                    {
+                        Success = false,
+                        Message = "User profile not found",
+                        Summary = new AccountDeletionSummary()
+                    });
                 }
 
-                userProfile.IsActive = false;
-                userProfile.UpdatedAt = DateTime.UtcNow;
+                // Get user ID from JWT token
+                var userIdClaim = User.FindFirst("sub")?.Value ?? User.FindFirst("userId")?.Value;
+                if (string.IsNullOrEmpty(userIdClaim) || userProfile.UserId.ToString() != userIdClaim)
+                {
+                    _logger.LogWarning("Unauthorized account deletion attempt. User {Requester} tried to delete profile {ProfileId} owned by {Owner}",
+                        userIdClaim, id, userProfile.UserId);
+                    return Forbid();
+                }
 
-                await _context.SaveChangesAsync();
+                // Execute deletion
+                var hardDelete = request?.HardDelete ?? false;
+                var reason = request?.Reason;
+                
+                var result = await _accountDeletionService.DeleteAccountAsync(id, hardDelete, reason);
 
-                _logger.LogInformation($"Deactivated user profile {id}");
-
-                return NoContent();
+                if (result.Success)
+                {
+                    _logger.LogInformation("Account deletion completed for user {UserProfileId}. Hard delete: {HardDelete}. Summary: {@Summary}",
+                        id, hardDelete, result.Summary);
+                    return Ok(result);
+                }
+                else
+                {
+                    _logger.LogWarning("Account deletion failed for user {UserProfileId}. Message: {Message}",
+                        id, result.Message);
+                    return StatusCode(500, result);
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error deactivating user profile {id}");
-                return StatusCode(500, "Error deactivating user profile");
+                _logger.LogError(ex, "Error deleting account for user profile {UserProfileId}", id);
+                return StatusCode(500, new AccountDeletionResult
+                {
+                    Success = false,
+                    Message = "Unexpected error during account deletion",
+                    Summary = new AccountDeletionSummary
+                    {
+                        Errors = new List<string> { ex.Message }
+                    }
+                });
             }
         }
 

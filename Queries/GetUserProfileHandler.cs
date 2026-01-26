@@ -26,7 +26,9 @@ public class GetUserProfileHandler : IRequestHandler<GetUserProfileQuery, Result
     {
         try
         {
+            // Use AsNoTracking() for read-only query optimization
             var userProfile = await _context.UserProfiles
+                .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Id == request.UserId && p.IsActive, cancellationToken);
 
             if (userProfile == null)

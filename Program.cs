@@ -11,6 +11,10 @@ using UserService.Services;
 using UserService.Extensions;
 using System.Reflection;
 using System.Threading.Tasks;
+using Microsoft.OpenApi.Models;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -51,6 +55,8 @@ else
 // Register application services
 builder.Services.AddScoped<IPhotoService, PhotoService>();
 builder.Services.AddScoped<IVerificationService, VerificationService>();
+builder.Services.AddScoped<IAccountDeletionService, AccountDeletionService>();
+builder.Services.AddHttpClient();
 builder.Services.AddCorrelationIds();
 
 // Add CQRS with MediatR
@@ -92,16 +98,85 @@ builder.Services.AddAuthorization();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    c.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "User Service API",
         Version = "v1",
-        Description = "API documentation for the User Service."
+        Description = "User profiles, photos, preferences, verification, and account deletion."
     });
+
+    // JWT Bearer authentication
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header using the Bearer scheme. Enter your token in the text input below.",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            new string[] {}
+        }
+    });
+
     var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = System.IO.Path.Combine(AppContext.BaseDirectory, xmlFile);
-    c.IncludeXmlComments(xmlPath);
+    if (System.IO.File.Exists(xmlPath))
+    {
+        c.IncludeXmlComments(xmlPath);
+    }
 });
+
+// Configure OpenTelemetry for metrics and distributed tracing
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(resource => resource
+        .AddService(serviceName: "user-service",
+                    serviceVersion: "1.0.0"))
+    .WithMetrics(metrics => metrics
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddRuntimeInstrumentation()
+        .AddMeter("UserService")
+        .AddPrometheusExporter())
+    .WithTracing(tracing => tracing
+        .AddAspNetCoreInstrumentation(options =>
+        {
+            options.RecordException = true;
+            options.Filter = (httpContext) =>
+            {
+                // Don't trace health checks and metrics endpoints
+                var path = httpContext.Request.Path.ToString();
+                return !path.Contains("/health") && !path.Contains("/metrics");
+            };
+        })
+        .AddHttpClientInstrumentation()
+        .AddEntityFrameworkCoreInstrumentation(options =>
+        {
+            options.SetDbStatementForText = true;
+            options.EnrichWithIDbCommand = (activity, command) =>
+            {
+                activity.SetTag("db.query", command.CommandText);
+            };
+        }));
+
+// Create a custom meter for application-specific metrics
+var meterProvider = builder.Services.BuildServiceProvider().GetService<System.Diagnostics.Metrics.MeterProvider>();
+System.Diagnostics.Metrics.Meter customMeter = new("UserService");
+var profileCreatedCounter = customMeter.CreateCounter<long>("user_profiles_created_total", description: "Total number of user profiles created");
+var profileUpdatedCounter = customMeter.CreateCounter<long>("user_profiles_updated_total", description: "Total number of user profiles updated");
+var profileDeletedCounter = customMeter.CreateCounter<long>("user_profiles_deleted_total", description: "Total number of user profiles deleted");
+var searchQueryDuration = customMeter.CreateHistogram<double>("user_search_duration_ms", description: "Duration of user profile search queries in milliseconds");
 
 var app = builder.Build();
 
@@ -152,4 +227,8 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHealthChecks("/health");
+
+// Map Prometheus metrics endpoint
+app.MapPrometheusScrapingEndpoint("/metrics");
+
 app.Run();
