@@ -9,6 +9,8 @@ using Microsoft.Extensions.DependencyInjection;
 using UserService.Data;
 using UserService.Services;
 using UserService.Extensions;
+using UserService.Common;
+using UserService.Common;
 using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.OpenApi.Models;
@@ -162,7 +164,6 @@ builder.Services.AddOpenTelemetry()
     .WithMetrics(metrics => metrics
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
-        .AddRuntimeInstrumentation()
         .AddMeter("UserService")
         .AddPrometheusExporter())
     .WithTracing(tracing => tracing
@@ -187,7 +188,7 @@ builder.Services.AddOpenTelemetry()
         }));
 
 // Create a custom meter for application-specific metrics
-var meterProvider = builder.Services.BuildServiceProvider().GetService<System.Diagnostics.Metrics.MeterProvider>();
+// var meterProvider = builder.Services.BuildServiceProvider().GetService<System.Diagnostics.Metrics.MeterProvider>(); // Removed - MeterProvider not needed
 System.Diagnostics.Metrics.Meter customMeter = new("UserService");
 var profileCreatedCounter = customMeter.CreateCounter<long>("user_profiles_created_total", description: "Total number of user profiles created");
 var profileUpdatedCounter = customMeter.CreateCounter<long>("user_profiles_updated_total", description: "Total number of user profiles updated");
