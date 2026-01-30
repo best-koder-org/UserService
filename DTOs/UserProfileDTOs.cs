@@ -134,6 +134,11 @@ namespace UserService.DTOs
     {
         public int Id { get; set; }
         public string Name { get; set; } = string.Empty;
+        
+        // Convenience properties for tests that expect firstName/lastName  
+        public string FirstName => Name.Split(' ', 2).FirstOrDefault() ?? "";
+        public string LastName => Name.Split(' ', 2).Skip(1).FirstOrDefault() ?? "";
+        
         public string Email { get; set; } = string.Empty;
         public string Bio { get; set; } = string.Empty;
         public int Age { get; set; }

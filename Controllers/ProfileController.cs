@@ -9,7 +9,7 @@ using UserService.DTOs;
 
 namespace UserService.Controllers
 {
-    [Route("[controller]")]
+    [Route("api/profiles")]
     [ApiController]
     [Authorize]
     public class ProfileController : ControllerBase
@@ -33,27 +33,26 @@ namespace UserService.Controllers
         {
             try
             {
-                // Get the "sub" claim from JWT (Keycloak username like "erik_astrom")
-                var username = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                // Get the "sub" claim from JWT (Keycloak user ID)
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                     ?? User.FindFirst("sub")?.Value;
 
-                if (string.IsNullOrEmpty(username))
+                if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
                 {
-                    _logger.LogWarning("Profile request with no sub claim in JWT");
+                    _logger.LogWarning("Profile request with no valid sub claim in JWT");
                     return Unauthorized(ApiResponse<UserProfileDetailDto>.FailureResult(
                         "Invalid authentication token", "INVALID_TOKEN"));
                 }
 
-                _logger.LogInformation($"Looking up profile for username: {username}");
+                _logger.LogInformation($"Looking up profile for user ID: {userId}");
 
-                // Find profile by username (email or keycloak username)
+                // Find profile by UserId
                 var profile = await _context.UserProfiles
-                    .FirstOrDefaultAsync(p => p.Email.ToLower() == username.ToLower() 
-                        || p.Name.ToLower().Contains(username.ToLower().Replace("_", " ")));
+                    .FirstOrDefaultAsync(p => p.UserId == userId);
 
                 if (profile == null)
                 {
-                    _logger.LogWarning($"No profile found for username: {username}. Available profiles: {string.Join(", ", _context.UserProfiles.Select(p => $"{p.Name}({p.Email})").Take(10))}");
+                    _logger.LogWarning($"No profile found for user ID: {userId}");
                     return NotFound(ApiResponse<UserProfileDetailDto>.FailureResult(
                         "Profile not found for authenticated user", "PROFILE_NOT_FOUND"));
                 }
@@ -113,6 +112,52 @@ namespace UserService.Controllers
                 _logger.LogError(ex, "Error retrieving profile for authenticated user");
                 return StatusCode(500, ApiResponse<UserProfileDetailDto>.FailureResult(
                     "Error retrieving profile", "INTERNAL_ERROR"));
+            }
+        }
+
+        /// <summary>
+        /// Update the authenticated user's profile.
+        /// </summary>
+        [HttpPut("me")]
+        public async Task<ActionResult<ApiResponse<UserProfileDetailDto>>> UpdateMyProfile(
+            [FromBody] UpdateProfileDto updates)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                           ?? User.FindFirst("sub")?.Value;
+
+                if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
+                {
+                    return Unauthorized(ApiResponse<UserProfileDetailDto>.FailureResult(
+                        "Invalid authentication token", "INVALID_TOKEN"));
+                }
+
+                var profile = await _context.UserProfiles
+                    .FirstOrDefaultAsync(p => p.UserId == userGuid);
+
+                if (profile == null)
+                {
+                    return NotFound(ApiResponse<UserProfileDetailDto>.FailureResult(
+                        "Profile not found", "PROFILE_NOT_FOUND"));
+                }
+
+                // Update only provided fields
+                if (updates.Bio != null) profile.Bio = updates.Bio;
+                if (updates.Gender != null) profile.Gender = updates.Gender;
+                if (updates.City != null) profile.City = updates.City;
+                if (updates.Occupation != null) profile.Occupation = updates.Occupation;
+
+                await _context.SaveChangesAsync();
+
+                // Return updated profile (reuse GET logic)
+                return await GetMyProfile();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating profile");
+                return StatusCode(500, ApiResponse<UserProfileDetailDto>.FailureResult(
+                    "Error updating profile", "INTERNAL_ERROR"));
             }
         }
 

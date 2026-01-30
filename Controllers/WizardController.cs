@@ -31,10 +31,12 @@ public class WizardController : ControllerBase
     public async Task<IActionResult> UpdateStepBasicInfo([FromBody] WizardStepBasicInfoDto dto)
     {
         var userId = GetUserIdFromClaims();
+        var email = GetEmailFromClaims();
         
         var command = new UpdateWizardStepCommand
         {
             UserId = userId,
+            Email = email,
             Step = 1,
             BasicInfo = dto
         };
@@ -58,10 +60,12 @@ public class WizardController : ControllerBase
     public async Task<IActionResult> UpdateStepPreferences([FromBody] WizardStepPreferencesDto dto)
     {
         var userId = GetUserIdFromClaims();
+        var email = GetEmailFromClaims();
         
         var command = new UpdateWizardStepCommand
         {
             UserId = userId,
+            Email = email,
             Step = 2,
             Preferences = dto
         };
@@ -85,10 +89,12 @@ public class WizardController : ControllerBase
     public async Task<IActionResult> CompleteWizard([FromBody] WizardStepPhotosDto dto)
     {
         var userId = GetUserIdFromClaims();
+        var email = GetEmailFromClaims();
         
         var command = new UpdateWizardStepCommand
         {
             UserId = userId,
+            Email = email,
             Step = 3,
             Photos = dto
         };
@@ -115,5 +121,15 @@ public class WizardController : ControllerBase
         }
         
         return userId;
+    }
+
+    private string? GetEmailFromClaims()
+    {
+        // Log all claims for debugging
+        _logger.LogInformation("JWT Claims: {Claims}", 
+            string.Join(", ", User.Claims.Select(c => $"{c.Type}={c.Value}")));
+        
+        return User.FindFirst(ClaimTypes.Email)?.Value
+               ?? User.FindFirst("email")?.Value;
     }
 }

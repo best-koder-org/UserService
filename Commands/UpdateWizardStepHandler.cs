@@ -34,7 +34,7 @@ public class UpdateWizardStepHandler : IRequestHandler<UpdateWizardStepCommand, 
                 profile = new UserProfile 
                 { 
                     UserId = request.UserId,
-                    Email = "" // Will be populated by Keycloak webhook later
+                    Email = request.Email ?? "" // From JWT claims, fallback to empty
                 };
                 _context.UserProfiles.Add(profile);
             }

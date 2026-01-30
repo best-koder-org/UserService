@@ -77,7 +77,9 @@ public class GetUserProfileHandler : IRequestHandler<GetUserProfileQuery, Result
                 SubscriptionType = userProfile.SubscriptionType,
                 CreatedAt = userProfile.CreatedAt,
                 LastActiveAt = userProfile.LastActiveAt,
-                IsOnline = userProfile.IsOnline
+                IsOnline = userProfile.IsOnline,
+                OnboardingStatus = userProfile.OnboardingStatus,
+                OnboardingCompletedAt = userProfile.OnboardingCompletedAt
             };
 
             return Result<UserProfileDetailDto>.Success(profileDto);
