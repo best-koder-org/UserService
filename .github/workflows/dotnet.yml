@@ -21,13 +21,13 @@ jobs:
         dotnet-version: '8.0.x'
 
     - name:  Restore dependencies
-      run: dotnet restore
+      run: dotnet restore UserService.csproj
 
     - name: 🏗️ Build
-      run: dotnet build --configuration Release --no-restore
+      run: dotnet build UserService.csproj --configuration Release --no-restore
 
     - name: 🧪 Run tests
-      run: dotnet test --configuration Release --no-build --verbosity normal
+      run: dotnet test UserService.csproj --configuration Release --no-build --verbosity normal
 
     - name: 📤 Upload build artifacts
       uses: actions/upload-artifact@v4
