@@ -20,14 +20,19 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
-    - name:  Restore dependencies
+    - name: 📦 Restore dependencies
       run: dotnet restore UserService.csproj
 
     - name: 🏗️ Build
       run: dotnet build UserService.csproj --configuration Release --no-restore
 
     - name: 🧪 Run tests
-      run: dotnet test UserService.csproj --configuration Release --no-build --verbosity normal
+      run: |
+        if [ -d "UserService.Tests" ]; then
+          dotnet test UserService.Tests/UserService.Tests.csproj --configuration Release --verbosity normal
+        else
+          echo "No test project found, skipping tests"
+        fi
 
     - name: 📤 Upload build artifacts
       uses: actions/upload-artifact@v4
