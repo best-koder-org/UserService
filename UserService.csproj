@@ -40,7 +40,6 @@
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.3.1" />
   </ItemGroup>
     <ItemGroup>
-      <Compile Include="..\Shared\Middleware\CorrelationIdMiddleware.cs" Link="Shared/Middleware/CorrelationIdMiddleware.cs" />
     </ItemGroup>
 
   <ItemGroup>
