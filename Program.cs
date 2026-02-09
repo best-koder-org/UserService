@@ -74,6 +74,7 @@ else
 builder.Services.AddScoped<IPhotoService, PhotoService>();
 builder.Services.AddScoped<IVerificationService, VerificationService>();
 builder.Services.AddScoped<IAccountDeletionService, AccountDeletionService>();
+builder.Services.AddSingleton<ISafetyService, UserService.Services.SafetyService>();
 builder.Services.AddHttpClient();
 builder.Services.AddCorrelationIds();
 
