@@ -174,24 +174,106 @@ namespace UserService.Controllers
                 new[] { "Business", "Travel", "Innovation" }
             };
 
+            var promptQuestions = new[]
+            {
+                "A life goal of mine",
+                "My simple pleasures",
+                "I get along best with people who",
+                "Together, we could",
+                "The way to win me over is",
+                "My most controversial opinion",
+                "I'm looking for",
+                "My go-to karaoke song",
+                "Two truths and a lie",
+                "The key to my heart is",
+            };
+
+            var promptAnswers = new[]
+            {
+                "Travel to every continent before 40",
+                "Sunday mornings with coffee and a good book",
+                "Are curious about the world and love trying new things",
+                "Explore hidden food spots and take spontaneous road trips",
+                "Good conversation and a sense of humor",
+                "Pineapple absolutely belongs on pizza",
+                "Someone who makes ordinary moments feel extraordinary",
+                "Don't Stop Believin' by Journey — no shame",
+                "I've been skydiving, I can cook a 5-course meal, I once met the King",
+                "Genuine kindness and a love for adventure",
+                "Learn to surf on a tropical island together",
+                "A cozy night in with homemade pasta and a movie",
+                "Can laugh at themselves and appreciate the little things",
+                "Go on a camping trip under the northern lights",
+                "Eye contact, thoughtful questions, and remembering the little things",
+                "Cats are better than dogs — fight me",
+                "A partner in crime who's also my best friend",
+                "Bohemian Rhapsody — full dramatic performance included",
+                "I speak 4 languages, I've lived in 6 countries, I can juggle",
+                "Home-cooked meals and honest conversations",
+            };
+
+            var educations = new[]
+            {
+                "Stockholm University", "Lund University", "KTH Royal Institute",
+                "Gothenburg University", "Uppsala University", "Chalmers",
+                "Malmö University", "Linköping University", "Umeå University",
+                "Karolinska Institute"
+            };
+
+            var genders = new[] { "Woman", "Woman", "Woman", "Woman", "Woman", "Woman", "Man", "Non-binary", "Woman", "Woman" };
+            var heights = new[] { 165, 170, 158, 175, 162, 168, 182, 173, 160, 171 };
+
             for (int i = 0; i < count; i++)
             {
                 var nameIndex = i % names.Length;
                 var interestIndex = i % interests.Length;
-                
+
+                // Generate 3-6 photo URLs per profile
+                var photoCount = 3 + (i % 4); // 3-6 photos
+                var photoUrls = new List<string>();
+                for (int p = 0; p < photoCount; p++)
+                {
+                    photoUrls.Add($"https://picsum.photos/400/600?random={i * 10 + p + 1}");
+                }
+
+                // Generate 2-3 prompts per profile
+                var prompts = new List<PromptAnswer>();
+                var promptCount = 2 + (i % 2); // 2 or 3 prompts
+                for (int q = 0; q < promptCount; q++)
+                {
+                    var qIdx = (i * 3 + q) % promptQuestions.Length;
+                    var aIdx = (i * 3 + q) % promptAnswers.Length;
+                    prompts.Add(new PromptAnswer
+                    {
+                        Question = promptQuestions[qIdx],
+                        Answer = promptAnswers[aIdx]
+                    });
+                }
+
+                // Voice prompt for every 3rd profile
+                string? voicePromptUrl = (i % 3 == 0)
+                    ? $"https://example.com/voice-prompts/profile-{i + 1}.m4a"
+                    : null;
+
                 profiles.Add(new UserProfileSummaryDto
                 {
                     Id = i + 1,
                     Name = names[nameIndex],
-                    Age = 22 + (i % 15), // Ages 22-36
+                    Age = 22 + (i % 15),
                     City = cities[i % cities.Length],
-                    PrimaryPhotoUrl = $"https://picsum.photos/400/600?random={i + 1}",
+                    PrimaryPhotoUrl = photoUrls[0],
+                    PhotoUrls = photoUrls,
                     Bio = bios[i % bios.Length],
                     Occupation = occupations[i % occupations.Length],
+                    Education = educations[i % educations.Length],
+                    Height = heights[i % heights.Length],
+                    Gender = genders[i % genders.Length],
                     Interests = interests[interestIndex].ToList(),
-                    IsVerified = i % 3 == 0, // Every 3rd profile is verified
-                    IsOnline = i % 4 != 0, // 75% are online
-                    LastActiveAt = DateTime.UtcNow.AddMinutes(-Random.Shared.Next(0, 1440)) // Last active within 24 hours
+                    Prompts = prompts,
+                    VoicePromptUrl = voicePromptUrl,
+                    IsVerified = i % 3 == 0,
+                    IsOnline = i % 4 != 0,
+                    LastActiveAt = DateTime.UtcNow.AddMinutes(-Random.Shared.Next(0, 1440))
                 });
             }
 

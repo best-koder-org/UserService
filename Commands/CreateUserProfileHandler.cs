@@ -74,7 +74,8 @@ public class CreateUserProfileHandler : IRequestHandler<CreateUserProfileCommand
                 UpdatedAt = DateTime.UtcNow,
                 LastActiveAt = DateTime.UtcNow,
                 IsActive = true,
-                IsOnline = true
+                IsOnline = true,
+                UserId = request.UserId
             };
 
             _context.UserProfiles.Add(userProfile);

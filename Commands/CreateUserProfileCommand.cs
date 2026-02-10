@@ -32,4 +32,5 @@ public class CreateUserProfileCommand : IRequest<Result<UserProfileDetailDto>>
     public bool WantsChildren { get; set; }
     public bool HasChildren { get; set; }
     public string RelationshipType { get; set; } = string.Empty;
+    public Guid UserId { get; set; }
 }

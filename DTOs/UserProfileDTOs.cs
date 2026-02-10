@@ -121,13 +121,25 @@ namespace UserService.DTOs
         public int Age { get; set; }
         public string City { get; set; } = string.Empty;
         public string PrimaryPhotoUrl { get; set; } = string.Empty;
+        public List<string> PhotoUrls { get; set; } = new();
         public string Bio { get; set; } = string.Empty;
         public string Occupation { get; set; } = string.Empty;
+        public string Education { get; set; } = string.Empty;
+        public int Height { get; set; }
+        public string Gender { get; set; } = string.Empty;
         public List<string> Interests { get; set; } = new();
+        public List<PromptAnswer> Prompts { get; set; } = new();
+        public string? VoicePromptUrl { get; set; }
         public bool IsVerified { get; set; }
         public bool IsOnline { get; set; }
         public DateTime LastActiveAt { get; set; }
-        public double? Distance { get; set; } // Only shown if location permission granted
+        public double? Distance { get; set; }
+    }
+
+    public class PromptAnswer
+    {
+        public string Question { get; set; } = string.Empty;
+        public string Answer { get; set; } = string.Empty;
     }
     
     public class UserProfileDetailDto
