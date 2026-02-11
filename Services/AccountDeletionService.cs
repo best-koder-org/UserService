@@ -100,7 +100,7 @@ namespace UserService.Services
             {
                 _logger.LogError(ex, "Error deleting account for user profile {UserProfileId}", userProfileId);
                 summary.Errors.Add($"Error: {ex.Message}");
-                
+
                 return new AccountDeletionResult
                 {
                     Success = false,
@@ -217,7 +217,7 @@ namespace UserService.Services
         private async Task<(int reports, int blocks)> DeleteUserSafetyDataAsync(HttpClient httpClient, string userId)
         {
             int reports = 0, blocks = 0;
-            
+
             try
             {
                 var response = await httpClient.DeleteAsync($"/api/safety/user/{userId}");
@@ -229,7 +229,7 @@ namespace UserService.Services
                     {
                         int.TryParse(parts[0], out reports);
                         int.TryParse(parts[1], out blocks);
-                        _logger.LogInformation("Deleted {Reports} reports and {Blocks} blocks for user {UserId}", 
+                        _logger.LogInformation("Deleted {Reports} reports and {Blocks} blocks for user {UserId}",
                             reports, blocks, userId);
                     }
                 }
@@ -242,7 +242,7 @@ namespace UserService.Services
             {
                 _logger.LogError(ex, "Error deleting safety data for user {UserId}", userId);
             }
-            
+
             return (reports, blocks);
         }
 
@@ -252,7 +252,7 @@ namespace UserService.Services
             {
                 var preferences = await _context.MatchPreferences
                     .FirstOrDefaultAsync(p => p.UserProfileId == userProfileId);
-                
+
                 if (preferences != null)
                 {
                     _context.MatchPreferences.Remove(preferences);

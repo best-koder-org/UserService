@@ -10,6 +10,9 @@
 
   <ItemGroup>
     <Compile Remove="UserService.Tests/**" />
+    <Content Remove="UserService.Tests/**" />
+    <None Remove="UserService.Tests/**" />
+    <EmbeddedResource Remove="UserService.Tests/**" />
   </ItemGroup>
 
   <ItemGroup>

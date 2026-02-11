@@ -23,8 +23,8 @@ public class PreferencesController : ControllerBase
         _logger = logger;
     }
 
-    private string GetCurrentUserId() => User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
-        ?? User.FindFirst("sub")?.Value 
+    private string GetCurrentUserId() => User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+        ?? User.FindFirst("sub")?.Value
         ?? throw new UnauthorizedAccessException("User ID not found in token");
 
     /// <summary>
@@ -39,7 +39,7 @@ public class PreferencesController : ControllerBase
     public async Task<ActionResult<GetPreferencesResponse>> GetPreferences(string userId)
     {
         var currentUserId = GetCurrentUserId();
-        
+
         // Users can only read their own preferences
         if (currentUserId != userId)
         {
@@ -117,11 +117,11 @@ public class PreferencesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<GetPreferencesResponse>> UpdatePreferences(
-        string userId, 
+        string userId,
         [FromBody] UpdatePreferencesRequest request)
     {
         var currentUserId = GetCurrentUserId();
-        
+
         // Users can only update their own preferences
         if (currentUserId != userId)
         {
@@ -169,23 +169,23 @@ public class PreferencesController : ControllerBase
         if (request.MaxAge.HasValue) prefs.MaxAge = request.MaxAge.Value;
         if (request.MaxDistanceKm.HasValue) prefs.MaxDistanceKm = request.MaxDistanceKm.Value;
         if (request.PreferredGender != null) prefs.PreferredGender = request.PreferredGender;
-        if (request.RelationshipGoals != null) 
+        if (request.RelationshipGoals != null)
             prefs.RelationshipGoals = JsonSerializer.Serialize(request.RelationshipGoals);
-        
+
         if (request.DealBreakerSmoking.HasValue) prefs.DealBreakerSmoking = request.DealBreakerSmoking.Value;
         if (request.DealBreakerDrinking.HasValue) prefs.DealBreakerDrinking = request.DealBreakerDrinking.Value;
         if (request.DealBreakerHasChildren.HasValue) prefs.DealBreakerHasChildren = request.DealBreakerHasChildren.Value;
         if (request.DealBreakerWantsChildren.HasValue) prefs.DealBreakerWantsChildren = request.DealBreakerWantsChildren.Value;
-        
+
         if (request.RequireSameReligion.HasValue) prefs.RequireSameReligion = request.RequireSameReligion.Value;
         if (request.PreferSimilarEducation.HasValue) prefs.PreferSimilarEducation = request.PreferSimilarEducation.Value;
         if (request.ShowMeInDiscovery.HasValue) prefs.ShowMeInDiscovery = request.ShowMeInDiscovery.Value;
-        
+
         if (request.MinHeightCm.HasValue) prefs.MinHeightCm = request.MinHeightCm.Value;
         if (request.MaxHeightCm.HasValue) prefs.MaxHeightCm = request.MaxHeightCm.Value;
-        if (request.PreferredEthnicities != null) 
+        if (request.PreferredEthnicities != null)
             prefs.PreferredEthnicities = JsonSerializer.Serialize(request.PreferredEthnicities);
-        if (request.MustHaveInterests != null) 
+        if (request.MustHaveInterests != null)
             prefs.MustHaveInterests = JsonSerializer.Serialize(request.MustHaveInterests);
 
         prefs.UpdatedAt = DateTime.UtcNow;

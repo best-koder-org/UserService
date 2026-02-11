@@ -62,13 +62,13 @@ namespace UserService.Controllers
             try
             {
                 var allProfiles = GenerateDemoProfiles(50); // Generate larger pool for search
-                
+
                 // Apply simple filtering for demo
                 var filteredProfiles = allProfiles.AsEnumerable();
 
                 if (searchDto.MinAge.HasValue)
                     filteredProfiles = filteredProfiles.Where(p => p.Age >= searchDto.MinAge.Value);
-                
+
                 if (searchDto.MaxAge.HasValue)
                     filteredProfiles = filteredProfiles.Where(p => p.Age <= searchDto.MaxAge.Value);
 

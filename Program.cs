@@ -209,7 +209,7 @@ app.UseStaticFiles();
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    
+
     // Only migrate if using a relational database (not in-memory)
     if (dbContext.Database.IsRelational())
     {

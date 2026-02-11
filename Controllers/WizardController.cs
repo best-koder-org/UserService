@@ -32,7 +32,7 @@ public class WizardController : ControllerBase
     {
         var userId = GetUserIdFromClaims();
         var email = GetEmailFromClaims();
-        
+
         var command = new UpdateWizardStepCommand
         {
             UserId = userId,
@@ -42,7 +42,7 @@ public class WizardController : ControllerBase
         };
 
         var result = await _mediator.Send(command);
-        
+
         if (result.IsFailure)
         {
             return BadRequest(ApiResponse<UserProfileDetailDto>.FailureResult(result.Error ?? "Failed to update basic info"));
@@ -61,7 +61,7 @@ public class WizardController : ControllerBase
     {
         var userId = GetUserIdFromClaims();
         var email = GetEmailFromClaims();
-        
+
         var command = new UpdateWizardStepCommand
         {
             UserId = userId,
@@ -71,7 +71,7 @@ public class WizardController : ControllerBase
         };
 
         var result = await _mediator.Send(command);
-        
+
         if (result.IsFailure)
         {
             return BadRequest(ApiResponse<UserProfileDetailDto>.FailureResult(result.Error ?? "Failed to update preferences"));
@@ -90,7 +90,7 @@ public class WizardController : ControllerBase
     {
         var userId = GetUserIdFromClaims();
         var email = GetEmailFromClaims();
-        
+
         var command = new UpdateWizardStepCommand
         {
             UserId = userId,
@@ -100,7 +100,7 @@ public class WizardController : ControllerBase
         };
 
         var result = await _mediator.Send(command);
-        
+
         if (result.IsFailure)
         {
             return BadRequest(ApiResponse<UserProfileDetailDto>.FailureResult(result.Error ?? "Failed to complete wizard"));
@@ -114,21 +114,21 @@ public class WizardController : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                           ?? User.FindFirst("sub")?.Value;
-        
+
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
         {
             throw new UnauthorizedAccessException("Invalid user claims - missing or invalid user ID");
         }
-        
+
         return userId;
     }
 
     private string? GetEmailFromClaims()
     {
         // Log all claims for debugging
-        _logger.LogInformation("JWT Claims: {Claims}", 
+        _logger.LogInformation("JWT Claims: {Claims}",
             string.Join(", ", User.Claims.Select(c => $"{c.Type}={c.Value}")));
-        
+
         return User.FindFirst(ClaimTypes.Email)?.Value
                ?? User.FindFirst("email")?.Value;
     }

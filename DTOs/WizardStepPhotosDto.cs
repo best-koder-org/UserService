@@ -6,7 +6,7 @@ namespace UserService.DTOs;
 public class WizardStepPhotosDto
 {
     public required List<string> PhotoUrls { get; set; }
-    
+
     /// <summary>
     /// Minimum 1 photo required to complete wizard
     /// </summary>

@@ -9,10 +9,10 @@ public class WizardStepPreferencesDto
     public int MaxAge { get; set; } = 99;
     public int MaxDistance { get; set; } = 50; // km
     public string? PreferredGender { get; set; }
-    
+
     // Optional: Bio text
     public string? Bio { get; set; }
-    
+
     public bool IsValid() =>
         MinAge >= 18 &&
         MaxAge >= MinAge &&

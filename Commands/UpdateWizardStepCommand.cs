@@ -13,7 +13,7 @@ public record UpdateWizardStepCommand : IRequest<Result<UserProfileDetailDto>>
     public Guid UserId { get; init; }
     public string? Email { get; init; } // From JWT claims
     public int Step { get; init; } // 1, 2, or 3
-    
+
     // Step-specific data (only one will be populated)
     public WizardStepBasicInfoDto? BasicInfo { get; init; }
     public WizardStepPreferencesDto? Preferences { get; init; }

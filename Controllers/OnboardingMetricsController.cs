@@ -32,11 +32,11 @@ public class OnboardingMetricsController : ControllerBase
     public async Task<ActionResult<OnboardingMetricsDto>> GetMetrics()
     {
         var totalRegistered = await _context.UserProfiles.CountAsync();
-        
+
         // Basic info complete: has name, email, gender, and date of birth set
         var completedBasicInfo = await _context.UserProfiles
-            .CountAsync(u => !string.IsNullOrEmpty(u.Name) && 
-                             !string.IsNullOrEmpty(u.Gender) && 
+            .CountAsync(u => !string.IsNullOrEmpty(u.Name) &&
+                             !string.IsNullOrEmpty(u.Gender) &&
                              u.DateOfBirth != default);
 
         // Photos: at least one photo uploaded
@@ -78,8 +78,8 @@ public class OnboardingMetricsController : ControllerBase
         }
 
         var basicInfoCount = await _context.UserProfiles
-            .CountAsync(u => !string.IsNullOrEmpty(u.Name) && 
-                             !string.IsNullOrEmpty(u.Gender) && 
+            .CountAsync(u => !string.IsNullOrEmpty(u.Name) &&
+                             !string.IsNullOrEmpty(u.Gender) &&
                              u.DateOfBirth != default);
 
         var photosCount = await _context.UserProfiles

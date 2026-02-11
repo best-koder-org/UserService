@@ -512,7 +512,7 @@ namespace UserService.Controllers
                 // Execute deletion
                 var hardDelete = request?.HardDelete ?? false;
                 var reason = request?.Reason;
-                
+
                 var result = await _accountDeletionService.DeleteAccountAsync(id, hardDelete, reason);
 
                 if (result.Success)

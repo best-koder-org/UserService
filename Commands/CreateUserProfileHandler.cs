@@ -39,7 +39,7 @@ public class CreateUserProfileHandler : IRequestHandler<CreateUserProfileCommand
             // Business Rule: Validate age (must be 18+)
             var age = DateTime.Today.Year - request.DateOfBirth.Year;
             if (request.DateOfBirth.Date > DateTime.Today.AddYears(-age)) age--;
-            
+
             if (age < 18)
             {
                 return Result<UserProfileDetailDto>.Failure("Must be 18 or older");
@@ -81,7 +81,7 @@ public class CreateUserProfileHandler : IRequestHandler<CreateUserProfileCommand
             _context.UserProfiles.Add(userProfile);
             await _context.SaveChangesAsync(cancellationToken);
 
-            _logger.LogInformation("Created new user profile with ID {UserId} for email {Email}", 
+            _logger.LogInformation("Created new user profile with ID {UserId} for email {Email}",
                 userProfile.Id, userProfile.Email);
 
             // Map to DTO
