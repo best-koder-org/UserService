@@ -27,12 +27,12 @@ public class UpdateWizardStepHandler : IRequestHandler<UpdateWizardStepCommand, 
         {
             var profile = await _context.UserProfiles
                 .FirstOrDefaultAsync(p => p.UserId == request.UserId, cancellationToken);
-            
+
             if (profile == null)
             {
                 // Create new profile if doesn't exist
-                profile = new UserProfile 
-                { 
+                profile = new UserProfile
+                {
                     UserId = request.UserId,
                     Email = request.Email ?? "" // From JWT claims, fallback to empty
                 };
@@ -47,11 +47,11 @@ public class UpdateWizardStepHandler : IRequestHandler<UpdateWizardStepCommand, 
                         _logger.LogWarning("[OnboardingFunnel] Step 1 validation failed for user {UserId}", request.UserId);
                         return Result<UserProfileDetailDto>.Failure("Invalid basic info - check age requirement (18+)");
                     }
-                    
+
                     profile.Name = $"{request.BasicInfo.FirstName} {request.BasicInfo.LastName}";
                     profile.DateOfBirth = request.BasicInfo.DateOfBirth;
                     profile.Gender = request.BasicInfo.Gender;
-                    
+
                     // T027: Telemetry for onboarding funnel tracking
                     _logger.LogInformation("[OnboardingFunnel] Step 1 completed - user {UserId} (Gender: {Gender}, Age: {Age})",
                         request.UserId, request.BasicInfo.Gender, CalculateAge(request.BasicInfo.DateOfBirth));
@@ -63,15 +63,15 @@ public class UpdateWizardStepHandler : IRequestHandler<UpdateWizardStepCommand, 
                         _logger.LogWarning("[OnboardingFunnel] Step 2 validation failed for user {UserId}", request.UserId);
                         return Result<UserProfileDetailDto>.Failure("Invalid preferences - check age/distance settings");
                     }
-                    
+
                     // Note: UserProfile model doesn't have MinAge/MaxAge/MaxDistance fields
                     // These would need to be added to the model or stored elsewhere
                     profile.Preferences = request.Preferences.PreferredGender ?? "";
                     profile.Bio = request.Preferences.Bio ?? "";
-                    
+
                     // T027: Telemetry for preference settings
                     _logger.LogInformation("[OnboardingFunnel] Step 2 completed - user {UserId} (Seeking: {PreferredGender}, AgeRange: {MinAge}-{MaxAge}, Distance: {MaxDistance}km, HasBio: {HasBio})",
-                        request.UserId, request.Preferences.PreferredGender ?? "Any", 
+                        request.UserId, request.Preferences.PreferredGender ?? "Any",
                         request.Preferences.MinAge, request.Preferences.MaxAge, request.Preferences.MaxDistance,
                         !string.IsNullOrEmpty(request.Preferences.Bio));
                     break;
@@ -82,7 +82,7 @@ public class UpdateWizardStepHandler : IRequestHandler<UpdateWizardStepCommand, 
                         _logger.LogWarning("[OnboardingFunnel] Step 3 validation failed for user {UserId} - insufficient photos", request.UserId);
                         return Result<UserProfileDetailDto>.Failure("At least 1 photo required to complete wizard");
                     }
-                    
+
                     // Store photo URLs as JSON
                     profile.PhotoUrls = System.Text.Json.JsonSerializer.Serialize(request.Photos.PhotoUrls);
                     profile.PhotoCount = request.Photos.PhotoUrls.Count;
@@ -90,14 +90,14 @@ public class UpdateWizardStepHandler : IRequestHandler<UpdateWizardStepCommand, 
                     {
                         profile.PrimaryPhotoUrl = request.Photos.PhotoUrls[0];
                     }
-                    
+
                     // Mark wizard complete
                     var startedAt = profile.CreatedAt;
                     var completionTime = DateTime.UtcNow - startedAt;
                     profile.OnboardingStatus = OnboardingStatus.Ready;
                     profile.OnboardingCompletedAt = DateTime.UtcNow;
                     profile.IsActive = true;
-                    
+
                     // T027: Telemetry for wizard completion + funnel metrics
                     _logger.LogInformation("[OnboardingFunnel] ✓ Wizard COMPLETED - user {UserId} (PhotoCount: {PhotoCount}, TimeToComplete: {CompletionMinutes}min, Status: READY)",
                         request.UserId, request.Photos.PhotoUrls.Count, (int)completionTime.TotalMinutes);
@@ -108,7 +108,7 @@ public class UpdateWizardStepHandler : IRequestHandler<UpdateWizardStepCommand, 
             }
 
             await _context.SaveChangesAsync(cancellationToken);
-            
+
             return Result<UserProfileDetailDto>.Success(MapToDetailDto(profile));
         }
         catch (Exception ex)
@@ -122,7 +122,7 @@ public class UpdateWizardStepHandler : IRequestHandler<UpdateWizardStepCommand, 
 
     private static int CalculateAge(DateTime dateOfBirth)
     {
-        return DateTime.Now.Year - dateOfBirth.Year - 
+        return DateTime.Now.Year - dateOfBirth.Year -
                (DateTime.Now.DayOfYear < dateOfBirth.DayOfYear ? 1 : 0);
     }
 

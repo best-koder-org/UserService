@@ -97,6 +97,8 @@ namespace UserService.Controllers
         [HttpPost]
         public async Task<ActionResult<ApiResponse<UserProfileDetailDto>>> CreateUserProfile([FromBody] CreateUserProfileDto createDto)
         {
+            var userIdClaim = User.FindFirst("sub")?.Value ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var keycloakUserId = !string.IsNullOrEmpty(userIdClaim) ? Guid.Parse(userIdClaim) : Guid.Empty;
             var command = new CreateUserProfileCommand
             {
                 Name = createDto.Name,
@@ -120,7 +122,8 @@ namespace UserService.Controllers
                 DrinkingStatus = createDto.DrinkingStatus,
                 WantsChildren = createDto.WantsChildren,
                 HasChildren = createDto.HasChildren,
-                RelationshipType = createDto.RelationshipType
+                RelationshipType = createDto.RelationshipType,
+                UserId = keycloakUserId
             };
 
             var result = await _mediator.Send(command);
@@ -509,7 +512,7 @@ namespace UserService.Controllers
                 // Execute deletion
                 var hardDelete = request?.HardDelete ?? false;
                 var reason = request?.Reason;
-                
+
                 var result = await _accountDeletionService.DeleteAccountAsync(id, hardDelete, reason);
 
                 if (result.Success)

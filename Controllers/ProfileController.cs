@@ -58,12 +58,12 @@ namespace UserService.Controllers
                 }
 
                 // Deserialize JSON fields
-                var interests = string.IsNullOrEmpty(profile.Interests) 
-                    ? new List<string>() 
+                var interests = string.IsNullOrEmpty(profile.Interests)
+                    ? new List<string>()
                     : JsonSerializer.Deserialize<List<string>>(profile.Interests) ?? new List<string>();
-                
-                var languages = string.IsNullOrEmpty(profile.Languages) 
-                    ? new List<string>() 
+
+                var languages = string.IsNullOrEmpty(profile.Languages)
+                    ? new List<string>()
                     : JsonSerializer.Deserialize<List<string>>(profile.Languages) ?? new List<string>();
 
                 var dto = new UserProfileDetailDto
