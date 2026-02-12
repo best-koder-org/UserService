@@ -10,6 +10,7 @@ using UserService.Data;
 using UserService.DTOs;
 using UserService.Models;
 using UserService.Common;
+using UserService.Services;
 
 namespace UserService.Tests.Controllers;
 
@@ -32,7 +33,8 @@ public class ProfileControllerTests : IDisposable
 
         _context = new ApplicationDbContext(options);
         _mockLogger = new Mock<ILogger<ProfileController>>();
-        _controller = new ProfileController(_context, _mockLogger.Object);
+        var _mockCompleteness = new Mock<IProfileCompletenessService>();
+        _controller = new ProfileController(_context, _mockLogger.Object, _mockCompleteness.Object);
 
         // Setup HTTP context with claims
         var claims = new List<Claim>
@@ -404,7 +406,7 @@ public class ProfileControllerTests : IDisposable
     public async Task UpdateMyProfile_InvalidToken_ReturnsUnauthorized()
     {
         // Arrange - Create controller with no claims
-        var controllerNoClaims = new ProfileController(_context, _mockLogger.Object);
+        var controllerNoClaims = new ProfileController(_context, _mockLogger.Object, new Mock<IProfileCompletenessService>().Object);
         controllerNoClaims.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext()

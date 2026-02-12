@@ -6,6 +6,7 @@ using System.Text.Json;
 using UserService.Common;
 using UserService.Data;
 using UserService.DTOs;
+using UserService.Services;
 
 namespace UserService.Controllers
 {
@@ -16,13 +17,16 @@ namespace UserService.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly ILogger<ProfileController> _logger;
+        private readonly IProfileCompletenessService _completenessService;
 
         public ProfileController(
             ApplicationDbContext context,
-            ILogger<ProfileController> logger)
+            ILogger<ProfileController> logger,
+            IProfileCompletenessService completenessService)
         {
             _context = context;
             _logger = logger;
+            _completenessService = completenessService;
         }
 
         /// <summary>
@@ -175,5 +179,53 @@ namespace UserService.Controllers
                 Claims = User.Claims.Select(c => new { c.Type, c.Value }).ToList()
             });
         }
+
+        /// <summary>
+        /// Get profile completeness score for the authenticated user.
+        /// 3-tier weighted formula: Required (40%), Encouraged (35%), Optional (25%).
+        /// </summary>
+        [HttpGet("me/completeness")]
+        public async Task<ActionResult<ApiResponse<ProfileCompletenessDto>>> GetProfileCompleteness()
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                                  ?? User.FindFirst("sub")?.Value;
+
+                if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+                {
+                    return Unauthorized(ApiResponse<ProfileCompletenessDto>.FailureResult(
+                        "Invalid authentication token", "INVALID_TOKEN"));
+                }
+
+                var profile = await _context.UserProfiles
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.UserId == userId);
+
+                if (profile == null)
+                {
+                    return NotFound(ApiResponse<ProfileCompletenessDto>.FailureResult(
+                        "Profile not found", "NOT_FOUND"));
+                }
+
+                var result = _completenessService.Calculate(profile);
+
+                var dto = new ProfileCompletenessDto(
+                    result.Percentage,
+                    result.FilledFields.Select(f => new FieldStatusDto(f.FieldName, f.IsFilled, f.Weight, f.Tier)).ToList(),
+                    result.MissingFields.Select(f => new FieldStatusDto(f.FieldName, f.IsFilled, f.Weight, f.Tier)).ToList(),
+                    result.NextSuggestion
+                );
+
+                return Ok(ApiResponse<ProfileCompletenessDto>.SuccessResult(dto));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error calculating profile completeness");
+                return StatusCode(500, ApiResponse<ProfileCompletenessDto>.FailureResult(
+                    "Error calculating profile completeness", "INTERNAL_ERROR"));
+            }
+        }
+
     }
 }
