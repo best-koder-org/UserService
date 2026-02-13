@@ -8,6 +8,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using UserService.Data;
 using UserService.Services;
+using UserService.Middleware;
 using UserService.Extensions;
 using UserService.Common;
 using UserService.Common;
@@ -77,6 +78,7 @@ builder.Services.AddScoped<IAccountDeletionService, AccountDeletionService>();
 builder.Services.AddSingleton<ISafetyService, UserService.Services.SafetyService>();
 builder.Services.AddScoped<IProfileCompletenessService, ProfileCompletenessService>();
 builder.Services.AddHttpClient();
+builder.Services.AddMemoryCache();
 builder.Services.AddCorrelationIds();
 
 // Add CQRS with MediatR
@@ -244,6 +246,7 @@ app.UseCors(policy =>
 app.UseCorrelationIds();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseActivityPing(); // T166: Fire-and-forget activity ping to MatchmakingService
 app.MapControllers();
 app.MapHealthChecks("/health");
 
