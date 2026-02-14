@@ -191,13 +191,9 @@ builder.Services.AddOpenTelemetry()
             };
         }));
 
-// Create a custom meter for application-specific metrics
-// var meterProvider = builder.Services.BuildServiceProvider().GetService<System.Diagnostics.Metrics.MeterProvider>(); // Removed - MeterProvider not needed
-System.Diagnostics.Metrics.Meter customMeter = new("UserService");
-var profileCreatedCounter = customMeter.CreateCounter<long>("user_profiles_created_total", description: "Total number of user profiles created");
-var profileUpdatedCounter = customMeter.CreateCounter<long>("user_profiles_updated_total", description: "Total number of user profiles updated");
-var profileDeletedCounter = customMeter.CreateCounter<long>("user_profiles_deleted_total", description: "Total number of user profiles deleted");
-var searchQueryDuration = customMeter.CreateHistogram<double>("user_search_duration_ms", description: "Duration of user profile search queries in milliseconds");
+
+// Register injectable business metrics
+builder.Services.AddSingleton<UserService.Metrics.UserServiceMetrics>();
 
 var app = builder.Build();
 

@@ -1,3 +1,4 @@
+using UserService.Metrics;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
@@ -16,11 +17,13 @@ public class CreateUserProfileHandler : IRequestHandler<CreateUserProfileCommand
 {
     private readonly ApplicationDbContext _context;
     private readonly ILogger<CreateUserProfileHandler> _logger;
+    private readonly UserServiceMetrics _metrics;
 
-    public CreateUserProfileHandler(ApplicationDbContext context, ILogger<CreateUserProfileHandler> logger)
+    public CreateUserProfileHandler(ApplicationDbContext context, ILogger<CreateUserProfileHandler> logger, UserServiceMetrics? metrics = null)
     {
         _context = context;
         _logger = logger;
+        _metrics = metrics;
     }
 
     public async Task<Result<UserProfileDetailDto>> Handle(CreateUserProfileCommand request, CancellationToken cancellationToken)
@@ -80,7 +83,7 @@ public class CreateUserProfileHandler : IRequestHandler<CreateUserProfileCommand
 
             _context.UserProfiles.Add(userProfile);
             await _context.SaveChangesAsync(cancellationToken);
-
+            _metrics?.ProfileCreated();
             _logger.LogInformation("Created new user profile with ID {UserId} for email {Email}",
                 userProfile.Id, userProfile.Email);
 
