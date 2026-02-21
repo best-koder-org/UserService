@@ -54,6 +54,10 @@ namespace UserService.Data
                 .HasDatabaseName("IX_UserProfile_Location");
 
             modelBuilder.Entity<UserProfile>()
+                .HasIndex(u => u.AccountStatus)
+                .HasDatabaseName("IX_UserProfile_AccountStatus");
+
+            modelBuilder.Entity<UserProfile>()
                 .HasIndex(u => u.IsActive)
                 .HasDatabaseName("IX_UserProfile_IsActive");
 

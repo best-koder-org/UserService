@@ -162,6 +162,20 @@ namespace UserService.Models
         public OnboardingStatus OnboardingStatus { get; set; } = OnboardingStatus.Incomplete;
         public DateTime? OnboardingCompletedAt { get; set; }
 
+        // Account pause/snooze fields (T090)
+        [StringLength(20)]
+        public string AccountStatus { get; set; } = "Active"; // Active, Paused, Deactivated, Deleted
+
+        public DateTime? PausedAt { get; set; }
+        public DateTime? PauseUntil { get; set; }
+
+        [StringLength(50)]
+        public string? PauseDuration { get; set; } // Hours24, Hours72, OneWeek, Indefinite
+
+        [StringLength(500)]
+        public string? PauseReason { get; set; }
+
+
         public bool IsActive { get; set; } = true;
         public bool IsOnline { get; set; } = false;
 
