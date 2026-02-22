@@ -110,6 +110,66 @@ public class WizardController : ControllerBase
         return Ok(ApiResponse<UserProfileDetailDto>.SuccessResult(result.Value!));
     }
 
+    /// <summary>
+    /// Update wizard step 4: Identity & goals (orientation, relationship type)
+    /// Optional — user may skip these screens.
+    /// </summary>
+    [HttpPatch("step/4")]
+    [ProducesResponseType(typeof(ApiResponse<UserProfileDetailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UpdateStepIdentity([FromBody] WizardStepIdentityDto dto)
+    {
+        var userId = GetUserIdFromClaims();
+        var email = GetEmailFromClaims();
+
+        var command = new UpdateWizardStepCommand
+        {
+            UserId = userId,
+            Email = email,
+            Step = 4,
+            Identity = dto
+        };
+
+        var result = await _mediator.Send(command);
+
+        if (result.IsFailure)
+        {
+            return BadRequest(ApiResponse<UserProfileDetailDto>.FailureResult(result.Error ?? "Failed to update identity"));
+        }
+
+        return Ok(ApiResponse<UserProfileDetailDto>.SuccessResult(result.Value!));
+    }
+
+    /// <summary>
+    /// Update wizard step 5: About me (interests, lifestyle, work, education)
+    /// Optional — user may skip these screens.
+    /// </summary>
+    [HttpPatch("step/5")]
+    [ProducesResponseType(typeof(ApiResponse<UserProfileDetailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UpdateStepAboutMe([FromBody] WizardStepAboutMeDto dto)
+    {
+        var userId = GetUserIdFromClaims();
+        var email = GetEmailFromClaims();
+
+        var command = new UpdateWizardStepCommand
+        {
+            UserId = userId,
+            Email = email,
+            Step = 5,
+            AboutMe = dto
+        };
+
+        var result = await _mediator.Send(command);
+
+        if (result.IsFailure)
+        {
+            return BadRequest(ApiResponse<UserProfileDetailDto>.FailureResult(result.Error ?? "Failed to update about me"));
+        }
+
+        return Ok(ApiResponse<UserProfileDetailDto>.SuccessResult(result.Value!));
+    }
+
     private Guid GetUserIdFromClaims()
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value

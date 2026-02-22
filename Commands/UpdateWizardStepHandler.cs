@@ -91,7 +91,8 @@ public class UpdateWizardStepHandler : IRequestHandler<UpdateWizardStepCommand, 
                         profile.PrimaryPhotoUrl = request.Photos.PhotoUrls[0];
                     }
 
-                    // Mark wizard complete
+                    // Mark wizard complete — photos are the last *required* step.
+                    // Steps 4–5 (identity, about me) are optional enrichments.
                     var startedAt = profile.CreatedAt;
                     var completionTime = DateTime.UtcNow - startedAt;
                     profile.OnboardingStatus = OnboardingStatus.Ready;
@@ -101,6 +102,64 @@ public class UpdateWizardStepHandler : IRequestHandler<UpdateWizardStepCommand, 
                     // T027: Telemetry for wizard completion + funnel metrics
                     _logger.LogInformation("[OnboardingFunnel] ✓ Wizard COMPLETED - user {UserId} (PhotoCount: {PhotoCount}, TimeToComplete: {CompletionMinutes}min, Status: READY)",
                         request.UserId, request.Photos.PhotoUrls.Count, (int)completionTime.TotalMinutes);
+                    break;
+
+                case 4: // Identity & Goals (orientation, relationship type) — optional
+                    if (request.Identity == null)
+                    {
+                        _logger.LogWarning("[OnboardingFunnel] Step 4 received null Identity for user {UserId}", request.UserId);
+                        return Result<UserProfileDetailDto>.Failure("Missing identity data");
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(request.Identity.SexualOrientation))
+                        profile.SexualOrientation = request.Identity.SexualOrientation;
+
+                    if (!string.IsNullOrWhiteSpace(request.Identity.RelationshipType))
+                        profile.RelationshipType = request.Identity.RelationshipType;
+
+                    _logger.LogInformation("[OnboardingFunnel] Step 4 completed - user {UserId} (Orientation: {Orientation}, RelType: {RelType})",
+                        request.UserId,
+                        request.Identity.SexualOrientation ?? "(skipped)",
+                        request.Identity.RelationshipType ?? "(skipped)");
+                    break;
+
+                case 5: // About Me (interests, lifestyle, work, education) — optional
+                    if (request.AboutMe == null)
+                    {
+                        _logger.LogWarning("[OnboardingFunnel] Step 5 received null AboutMe for user {UserId}", request.UserId);
+                        return Result<UserProfileDetailDto>.Failure("Missing about-me data");
+                    }
+
+                    if (request.AboutMe.Interests.Count > 0)
+                        profile.Interests = System.Text.Json.JsonSerializer.Serialize(request.AboutMe.Interests);
+
+                    if (!string.IsNullOrWhiteSpace(request.AboutMe.SmokingStatus))
+                        profile.SmokingStatus = request.AboutMe.SmokingStatus;
+
+                    if (!string.IsNullOrWhiteSpace(request.AboutMe.DrinkingStatus))
+                        profile.DrinkingStatus = request.AboutMe.DrinkingStatus;
+
+                    if (request.AboutMe.WantsChildren.HasValue)
+                        profile.WantsChildren = request.AboutMe.WantsChildren.Value;
+
+                    if (!string.IsNullOrWhiteSpace(request.AboutMe.Occupation))
+                        profile.Occupation = request.AboutMe.Occupation;
+
+                    if (!string.IsNullOrWhiteSpace(request.AboutMe.Company))
+                        profile.Company = request.AboutMe.Company;
+
+                    if (!string.IsNullOrWhiteSpace(request.AboutMe.Education))
+                        profile.Education = request.AboutMe.Education;
+
+                    if (!string.IsNullOrWhiteSpace(request.AboutMe.School))
+                        profile.School = request.AboutMe.School;
+
+                    _logger.LogInformation("[OnboardingFunnel] Step 5 completed - user {UserId} (Interests: {InterestCount}, Smoking: {Smoking}, Drinking: {Drinking}, Occupation: {Occ})",
+                        request.UserId,
+                        request.AboutMe.Interests.Count,
+                        request.AboutMe.SmokingStatus ?? "(skipped)",
+                        request.AboutMe.DrinkingStatus ?? "(skipped)",
+                        request.AboutMe.Occupation ?? "(skipped)");
                     break;
 
                 default:
