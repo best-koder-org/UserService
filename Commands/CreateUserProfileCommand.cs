@@ -33,4 +33,7 @@ public class CreateUserProfileCommand : IRequest<Result<UserProfileDetailDto>>
     public bool HasChildren { get; set; }
     public string RelationshipType { get; set; } = string.Empty;
     public Guid UserId { get; set; }
+
+    /// <summary>Auto-detected from email domain — true for bot_*@bot.local</summary>
+    public bool IsBot { get; set; } = false;
 }

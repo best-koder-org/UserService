@@ -78,7 +78,8 @@ public class CreateUserProfileHandler : IRequestHandler<CreateUserProfileCommand
                 LastActiveAt = DateTime.UtcNow,
                 IsActive = true,
                 IsOnline = true,
-                UserId = request.UserId
+                UserId = request.UserId,
+                IsBot = request.IsBot || request.Email.EndsWith("@bot.local", StringComparison.OrdinalIgnoreCase)
             };
 
             _context.UserProfiles.Add(userProfile);

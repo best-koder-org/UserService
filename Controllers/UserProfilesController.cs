@@ -198,7 +198,17 @@ namespace UserService.Controllers
                 if (!string.IsNullOrEmpty(updateDto.RelationshipType))
                     userProfile.RelationshipType = updateDto.RelationshipType;
                 if (updateDto.Interests != null)
-                    userProfile.Interests = JsonSerializer.Serialize(updateDto.Interests);
+                {
+                    // Normalize comma-separated strings into proper array elements
+                    var normalized = updateDto.Interests
+                        .SelectMany(i => i.Contains(',')
+                            ? i.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                            : new[] { i.Trim() })
+                        .Where(i => !string.IsNullOrWhiteSpace(i))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                    userProfile.Interests = JsonSerializer.Serialize(normalized);
+                }
                 if (updateDto.Languages != null)
                     userProfile.Languages = JsonSerializer.Serialize(updateDto.Languages);
                 if (!string.IsNullOrEmpty(updateDto.HobbyList))

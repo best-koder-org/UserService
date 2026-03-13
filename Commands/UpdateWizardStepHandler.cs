@@ -131,7 +131,18 @@ public class UpdateWizardStepHandler : IRequestHandler<UpdateWizardStepCommand, 
                     }
 
                     if (request.AboutMe.Interests.Count > 0)
-                        profile.Interests = System.Text.Json.JsonSerializer.Serialize(request.AboutMe.Interests);
+                    {
+                        // Normalize: if client sends comma-separated string as single element,
+                        // split it into proper array (e.g. "hiking,coffee" → ["hiking","coffee"])
+                        var normalizedInterests = request.AboutMe.Interests
+                            .SelectMany(i => i.Contains(',')
+                                ? i.Split(',', System.StringSplitOptions.RemoveEmptyEntries | System.StringSplitOptions.TrimEntries)
+                                : new[] { i.Trim() })
+                            .Where(i => !string.IsNullOrWhiteSpace(i))
+                            .Distinct(System.StringComparer.OrdinalIgnoreCase)
+                            .ToList();
+                        profile.Interests = System.Text.Json.JsonSerializer.Serialize(normalizedInterests);
+                    }
 
                     if (!string.IsNullOrWhiteSpace(request.AboutMe.SmokingStatus))
                         profile.SmokingStatus = request.AboutMe.SmokingStatus;
