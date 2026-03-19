@@ -117,6 +117,7 @@ namespace UserService.DTOs
     public class UserProfileSummaryDto
     {
         public int Id { get; set; }
+        public string KeycloakId { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public int Age { get; set; }
         public string City { get; set; } = string.Empty;
@@ -145,6 +146,7 @@ namespace UserService.DTOs
     public class UserProfileDetailDto
     {
         public int Id { get; set; }
+        public string KeycloakId { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
 
         // Convenience properties for tests that expect firstName/lastName  

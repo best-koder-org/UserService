@@ -201,6 +201,7 @@ public class UpdateWizardStepHandler : IRequestHandler<UpdateWizardStepCommand, 
         return new UserProfileDetailDto
         {
             Id = profile.Id,
+                KeycloakId = profile.UserId.ToString(),
             Name = profile.Name,
             Email = profile.Email,
             Bio = profile.Bio,
