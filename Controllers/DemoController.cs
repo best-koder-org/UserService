@@ -288,6 +288,7 @@ namespace UserService.Controllers
             return new UserProfileDetailDto
             {
                 Id = id,
+                KeycloakId = "",
                 Name = summaryProfile.Name,
                 Email = $"demo.user.{id}@example.com",
                 Bio = summaryProfile.Bio,

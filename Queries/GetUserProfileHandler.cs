@@ -40,6 +40,7 @@ public class GetUserProfileHandler : IRequestHandler<GetUserProfileQuery, Result
             var profileDto = new UserProfileDetailDto
             {
                 Id = userProfile.Id,
+                KeycloakId = userProfile.UserId.ToString(),
                 Name = userProfile.Name,
                 Email = userProfile.Email,
                 Bio = userProfile.Bio,
