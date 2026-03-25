@@ -182,6 +182,10 @@ namespace UserService.Models
         /// <summary>True if this profile belongs to an automated bot account</summary>
         public bool IsBot { get; set; } = false;
 
+        /// <summary>App flavor this user signed up through (hinge, fleet)</summary>
+        [StringLength(20)]
+        public string FlavorId { get; set; } = "hinge";
+
         // Calculated fields
         [NotMapped]
         public int Age
