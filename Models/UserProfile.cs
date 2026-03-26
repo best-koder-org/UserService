@@ -184,7 +184,7 @@ namespace UserService.Models
 
         /// <summary>App flavor this user signed up through (hinge, fleet)</summary>
         [StringLength(20)]
-        public string FlavorId { get; set; } = "hinge";
+        public string FlavorId { get; set; } = "dejting";
 
         // Calculated fields
         [NotMapped]
