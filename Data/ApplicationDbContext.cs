@@ -13,6 +13,8 @@ namespace UserService.Data
 
         public DbSet<UserProfile> UserProfiles { get; set; }
         public DbSet<MatchPreferences> MatchPreferences { get; set; }
+        public DbSet<PsykologSession> PsykologSessions { get; set; }
+        public DbSet<PsykologMessage> PsykologMessages { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -91,6 +93,18 @@ namespace UserService.Data
             modelBuilder.Entity<MatchPreferences>()
                 .HasIndex(m => m.UserProfileId)
                 .HasDatabaseName("IX_MatchPreferences_UserProfileId");
+
+            // PsykologSession configuration
+            modelBuilder.Entity<PsykologSession>()
+                .HasIndex(s => s.KeycloakId)
+                .HasDatabaseName("IX_PsykologSession_KeycloakId");
+
+            // PsykologMessage configuration
+            modelBuilder.Entity<PsykologMessage>()
+                .HasOne(m => m.Session)
+                .WithMany(s => s.Messages)
+                .HasForeignKey(m => m.SessionId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }
