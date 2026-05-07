@@ -67,21 +67,17 @@ builder.Services.AddCors(options =>
 });
 
 // Add services to the container.
-if (Environment.GetEnvironmentVariable("DEMO_MODE") == "true")
+var userDbConnectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(userDbConnectionString))
 {
-    builder.Services.AddDbContext<ApplicationDbContext>(options =>
-        options.UseInMemoryDatabase("UserServiceDemo"));
-    Console.WriteLine("UserService using in-memory database for demo mode");
+    throw new InvalidOperationException(
+        "UserService requires a configured ConnectionStrings:DefaultConnection (MySQL).");
 }
-else
-{
-    builder.Services.AddDbContext<ApplicationDbContext>(options =>
-        options.UseMySql(
-            builder.Configuration.GetConnectionString("DefaultConnection"),
-            new MySqlServerVersion(new Version(8, 0, 30))
-        ));
-    Console.WriteLine("UserService using MySQL database for production mode");
-}
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseMySql(
+        userDbConnectionString,
+        new MySqlServerVersion(new Version(8, 0, 30))
+    ));
 
 // Register application services
 builder.Services.AddScoped<IPhotoService, PhotoService>();
