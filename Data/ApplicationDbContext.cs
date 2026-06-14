@@ -13,6 +13,10 @@ namespace UserService.Data
 
         public DbSet<UserProfile> UserProfiles { get; set; }
         public DbSet<MatchPreferences> MatchPreferences { get; set; }
+        public DbSet<SupportTicket> SupportTickets { get; set; }
+        public DbSet<Entitlement> Entitlements { get; set; }
+        public DbSet<SparksLedgerEntry> SparksLedger { get; set; }
+        public DbSet<SparkRecord> Sparks { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -91,6 +95,41 @@ namespace UserService.Data
             modelBuilder.Entity<MatchPreferences>()
                 .HasIndex(m => m.UserProfileId)
                 .HasDatabaseName("IX_MatchPreferences_UserProfileId");
+
+            // SupportTicket configuration (T091)
+            modelBuilder.Entity<SupportTicket>()
+                .HasIndex(t => t.TicketId)
+                .IsUnique()
+                .HasDatabaseName("IX_SupportTicket_TicketId");
+
+            modelBuilder.Entity<SupportTicket>()
+                .HasIndex(t => t.UserId)
+                .HasDatabaseName("IX_SupportTicket_UserId");
+
+            modelBuilder.Entity<SupportTicket>()
+                .Property(t => t.Category)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            modelBuilder.Entity<SupportTicket>()
+                .Property(t => t.Status)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            // Entitlement (P1.1)
+            modelBuilder.Entity<Entitlement>()
+                .HasIndex(e => e.UserId)
+                .HasDatabaseName("IX_Entitlement_UserId");
+
+            modelBuilder.Entity<Entitlement>()
+                .Property(e => e.Tier)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            // SparksLedger (P1.1)
+            modelBuilder.Entity<SparksLedgerEntry>()
+                .HasIndex(s => s.UserId)
+                .HasDatabaseName("IX_SparksLedger_UserId");
         }
     }
 }
