@@ -1,3 +1,5 @@
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -25,13 +27,15 @@ public class BillingController : ControllerBase
     private readonly ILogger<BillingController> _logger;
     private readonly IConfiguration _configuration;
     private readonly ApplicationDbContext _db;
+    private readonly IHttpClientFactory _httpClientFactory;
 
-    public BillingController(IMediator mediator, ILogger<BillingController> logger, IConfiguration configuration, ApplicationDbContext db)
+    public BillingController(IMediator mediator, ILogger<BillingController> logger, IConfiguration configuration, ApplicationDbContext db, IHttpClientFactory httpClientFactory)
     {
         _mediator = mediator;
         _logger = logger;
         _configuration = configuration;
         _db = db;
+        _httpClientFactory = httpClientFactory;
     }
 
     private string? GetUserId() =>
@@ -185,6 +189,9 @@ public class BillingController : ControllerBase
         if (!result.Success)
             return StatusCode(402, ApiResponse<SendSparkResponse>.FailureResult(result.Error ?? "Cannot send Spark"));
 
+        // Notify recipient in real-time via MatchmakingService SignalR (best-effort)
+        _ = NotifyRecipientOfSparkAsync(userId, request.RecipientUserId, request.Message);
+
         return Ok(ApiResponse<SendSparkResponse>.SuccessResult(result, "Spark sent!"));
     }
 
@@ -234,6 +241,40 @@ public class BillingController : ControllerBase
 
 
     // ── Admin dashboard endpoints ──
+
+    /// <summary>Notify recipient via SignalR that they received a Spark. Best-effort.</summary>
+    private async Task NotifyRecipientOfSparkAsync(string senderUserId, string recipientUserId, string? message)
+    {
+        try
+        {
+            var matchmakingUrl = _configuration["Services:MatchmakingService"] ?? "http://matchmaking-service:8083";
+            var internalKey = _configuration["InternalAuth:ApiKey"] ?? "user-service-internal-key-dev-only";
+
+            var client = _httpClientFactory.CreateClient();
+            var payload = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                RecipientUserId = recipientUserId,
+                SenderUserId = senderUserId,
+                Message = message ?? ""
+            });
+
+            var httpContent = new StringContent(payload, System.Text.Encoding.UTF8, "application/json");
+            httpContent.Headers.Add("X-Internal-API-Key", internalKey);
+
+            var response = await client.PostAsync(
+                $"{matchmakingUrl}/api/spark-notifications/notify",
+                httpContent);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Spark notification to MatchmakingService returned {Status}", response.StatusCode);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to send spark notification (best-effort)");
+        }
+    }
 
     /// <summary>Admin billing overview — purchases, subscriptions, Sparks balances.
     /// Protected by internal API key (same as service-to-service).</summary>

@@ -178,7 +178,7 @@ public class BillingTests : IDisposable
         var logger = new Mock<ILogger<BillingController>>();
         var config = new Mock<Microsoft.Extensions.Configuration.IConfiguration>();
         config.Setup(c => c["InternalAuth:ApiKey"]).Returns("test-key");
-        var controller = new BillingController(mediatorMock.Object, logger.Object, config.Object, _db);
+        var controller = new BillingController(mediatorMock.Object, logger.Object, config.Object, _db, Mock.Of<System.Net.Http.IHttpClientFactory>());
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext
@@ -195,7 +195,7 @@ public class BillingTests : IDisposable
     {
         var logger = new Mock<ILogger<BillingController>>();
         var config = new Mock<Microsoft.Extensions.Configuration.IConfiguration>();
-        var controller = new BillingController(Mock.Of<IMediator>(), logger.Object, config.Object, _db);
+        var controller = new BillingController(Mock.Of<IMediator>(), logger.Object, config.Object, _db, Mock.Of<System.Net.Http.IHttpClientFactory>());
         var result = await controller.GetStatus();
         Assert.IsType<UnauthorizedObjectResult>(result);
     }
@@ -594,7 +594,7 @@ public class BillingTests : IDisposable
 
         var logger = new Mock<ILogger<BillingController>>();
         var config = new Mock<Microsoft.Extensions.Configuration.IConfiguration>();
-        var controller = new BillingController(mediator.Object, logger.Object, config.Object, _db);
+        var controller = new BillingController(mediator.Object, logger.Object, config.Object, _db, Mock.Of<System.Net.Http.IHttpClientFactory>());
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext
@@ -623,7 +623,7 @@ public class BillingTests : IDisposable
         var mediator = new Mock<IMediator>();
         var logger = new Mock<ILogger<BillingController>>();
         var config = new Mock<Microsoft.Extensions.Configuration.IConfiguration>();
-        var controller = new BillingController(mediator.Object, logger.Object, config.Object, _db);
+        var controller = new BillingController(mediator.Object, logger.Object, config.Object, _db, Mock.Of<System.Net.Http.IHttpClientFactory>());
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext
@@ -661,7 +661,7 @@ public class BillingTests : IDisposable
         var mediator = new Mock<IMediator>();
         var logger = new Mock<ILogger<BillingController>>();
         var config = new Mock<Microsoft.Extensions.Configuration.IConfiguration>();
-        var controller = new BillingController(mediator.Object, logger.Object, config.Object, _db);
+        var controller = new BillingController(mediator.Object, logger.Object, config.Object, _db, Mock.Of<System.Net.Http.IHttpClientFactory>());
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext
@@ -694,7 +694,7 @@ public class BillingTests : IDisposable
         var mediator = new Mock<IMediator>();
         var logger = new Mock<ILogger<BillingController>>();
         var config = new Mock<Microsoft.Extensions.Configuration.IConfiguration>();
-        var controller = new BillingController(mediator.Object, logger.Object, config.Object, _db);
+        var controller = new BillingController(mediator.Object, logger.Object, config.Object, _db, Mock.Of<System.Net.Http.IHttpClientFactory>());
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext
@@ -714,7 +714,7 @@ public class BillingTests : IDisposable
         var mediator = new Mock<IMediator>();
         var logger = new Mock<ILogger<BillingController>>();
         var config = new Mock<Microsoft.Extensions.Configuration.IConfiguration>();
-        var controller = new BillingController(mediator.Object, logger.Object, config.Object, _db);
+        var controller = new BillingController(mediator.Object, logger.Object, config.Object, _db, Mock.Of<System.Net.Http.IHttpClientFactory>());
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext
