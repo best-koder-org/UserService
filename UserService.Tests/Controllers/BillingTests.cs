@@ -638,6 +638,94 @@ public class BillingTests : IDisposable
 
         var selfResult = await controller.SendSpark(new SendSparkRequest(TestUserId, "to self"));
         Assert.IsType<BadRequestObjectResult>(selfResult);
-
     }
+
+    [Fact]
+    public async Task MarkSparkRead_AuthorizedRecipient_MarksAsRead()
+    {
+        var senderId = "mark-read-sender";
+        var recipientId = "mark-read-recipient";
+
+        var spark = new SparkRecord
+        {
+            SenderUserId = senderId,
+            RecipientUserId = recipientId,
+            Message = "Test spark",
+            IsRead = false,
+            CreatedAt = DateTime.UtcNow,
+        };
+        _db.Sparks.Add(spark);
+        await _db.SaveChangesAsync();
+        var sparkId = spark.Id;
+
+        var mediator = new Mock<IMediator>();
+        var logger = new Mock<ILogger<BillingController>>();
+        var config = new Mock<Microsoft.Extensions.Configuration.IConfiguration>();
+        var controller = new BillingController(mediator.Object, logger.Object, config.Object, _db);
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity(
+                    new[] { new Claim(ClaimTypes.NameIdentifier, recipientId) }, "Test"))
+            }
+        };
+
+        var result = await controller.MarkSparkRead(sparkId);
+        Assert.IsType<OkObjectResult>(result);
+
+        var reloaded = await _db.Sparks.FindAsync(sparkId);
+        Assert.True(reloaded?.IsRead);
+    }
+
+    [Fact]
+    public async Task MarkSparkRead_NonRecipient_ReturnsForbid()
+    {
+        var spark = new SparkRecord
+        {
+            SenderUserId = "sender",
+            RecipientUserId = "actual-recipient",
+            Message = "Test",
+            IsRead = false,
+        };
+        _db.Sparks.Add(spark);
+        await _db.SaveChangesAsync();
+
+        var mediator = new Mock<IMediator>();
+        var logger = new Mock<ILogger<BillingController>>();
+        var config = new Mock<Microsoft.Extensions.Configuration.IConfiguration>();
+        var controller = new BillingController(mediator.Object, logger.Object, config.Object, _db);
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity(
+                    new[] { new Claim(ClaimTypes.NameIdentifier, "other-user") }, "Test"))
+            }
+        };
+
+        var result = await controller.MarkSparkRead(spark.Id);
+        Assert.IsType<ForbidResult>(result);
+    }
+
+    [Fact]
+    public async Task MarkSparkRead_NonExistentSpark_ReturnsNotFound()
+    {
+        var mediator = new Mock<IMediator>();
+        var logger = new Mock<ILogger<BillingController>>();
+        var config = new Mock<Microsoft.Extensions.Configuration.IConfiguration>();
+        var controller = new BillingController(mediator.Object, logger.Object, config.Object, _db);
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity(
+                    new[] { new Claim(ClaimTypes.NameIdentifier, "any-user") }, "Test"))
+            }
+        };
+
+        var result = await controller.MarkSparkRead(99999);
+        Assert.IsType<NotFoundObjectResult>(result);
+    }
+
 }

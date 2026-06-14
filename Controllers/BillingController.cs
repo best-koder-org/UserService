@@ -2,9 +2,11 @@ using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using UserService.Commands;
 using UserService.Common;
+using UserService.Data;
 using UserService.DTOs;
 using UserService.Queries;
 
@@ -22,12 +24,14 @@ public class BillingController : ControllerBase
     private readonly IMediator _mediator;
     private readonly ILogger<BillingController> _logger;
     private readonly IConfiguration _configuration;
+    private readonly ApplicationDbContext _db;
 
-    public BillingController(IMediator mediator, ILogger<BillingController> logger, IConfiguration configuration)
+    public BillingController(IMediator mediator, ILogger<BillingController> logger, IConfiguration configuration, ApplicationDbContext db)
     {
         _mediator = mediator;
         _logger = logger;
         _configuration = configuration;
+        _db = db;
     }
 
     private string? GetUserId() =>
@@ -169,6 +173,13 @@ public class BillingController : ControllerBase
         if (request.RecipientUserId == userId)
             return BadRequest(ApiResponse<string>.FailureResult("Cannot send a Spark to yourself"));
 
+        // Verify recipient exists as a real user profile
+        if (!Guid.TryParse(request.RecipientUserId, out var recipientGuid))
+            return BadRequest(ApiResponse<string>.FailureResult("Invalid recipient user ID"));
+        var recipientExists = await _db.UserProfiles.AnyAsync(p => p.UserId == recipientGuid);
+        if (!recipientExists)
+            return BadRequest(ApiResponse<string>.FailureResult("Recipient user not found"));
+
         var result = await _mediator.Send(new SendSparkCommand(userId, request.RecipientUserId, request.Message));
 
         if (!result.Success)
@@ -199,6 +210,26 @@ public class BillingController : ControllerBase
 
         var result = await _mediator.Send(new GetSentSparksQuery(userId, page, pageSize));
         return Ok(ApiResponse<GetSentSparksResponse>.SuccessResult(result));
+    }
+
+
+    /// <summary>Mark a received Spark as read.</summary>
+    [HttpPost("sparks/{sparkId}/read")]
+    public async Task<IActionResult> MarkSparkRead(long sparkId)
+    {
+        var userId = GetUserId();
+        if (string.IsNullOrEmpty(userId))
+            return Unauthorized(ApiResponse<string>.FailureResult("Invalid token"));
+
+        var spark = await _db.Sparks.FindAsync(sparkId);
+        if (spark == null)
+            return NotFound(ApiResponse<string>.FailureResult("Spark not found"));
+        if (spark.RecipientUserId != userId)
+            return Forbid();
+
+        spark.IsRead = true;
+        await _db.SaveChangesAsync();
+        return Ok(ApiResponse<string>.SuccessResult("Marked as read"));
     }
 
 
