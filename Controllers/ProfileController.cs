@@ -7,6 +7,7 @@ using UserService.Common;
 using UserService.Data;
 using UserService.DTOs;
 using UserService.Services;
+using UserService.Models;
 
 namespace UserService.Controllers
 {
@@ -225,6 +226,120 @@ namespace UserService.Controllers
                 _logger.LogError(ex, "Error calculating profile completeness");
                 return StatusCode(500, ApiResponse<ProfileCompletenessDto>.FailureResult(
                     "Error calculating profile completeness", "INTERNAL_ERROR"));
+            }
+        }
+
+        /// <summary>
+        /// Get notification preferences for the authenticated user.
+        /// </summary>
+        [HttpGet("me/notifications")]
+        public async Task<ActionResult<ApiResponse<GetNotificationPreferencesResponse>>> GetNotificationPreferences()
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                                  ?? User.FindFirst("sub")?.Value;
+
+                if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+                {
+                    return Unauthorized(ApiResponse<GetNotificationPreferencesResponse>.FailureResult(
+                        "Invalid authentication token", "INVALID_TOKEN"));
+                }
+
+                var prefs = await _context.NotificationPreferences
+                    .FirstOrDefaultAsync(n => n.UserId == userId);
+
+                if (prefs == null)
+                {
+                    return Ok(ApiResponse<GetNotificationPreferencesResponse>.SuccessResult(
+                        new GetNotificationPreferencesResponse()));
+                }
+
+                return Ok(ApiResponse<GetNotificationPreferencesResponse>.SuccessResult(
+                    new GetNotificationPreferencesResponse
+                    {
+                        PushEnabled = prefs.PushEnabled,
+                        MatchNotifications = prefs.MatchNotifications,
+                        MessageNotifications = prefs.MessageNotifications,
+                        SparkNotifications = prefs.SparkNotifications,
+                        UpdatedAt = prefs.UpdatedAt
+                    }));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving notification preferences");
+                return StatusCode(500, ApiResponse<GetNotificationPreferencesResponse>.FailureResult(
+                    "Error retrieving notification preferences", "INTERNAL_ERROR"));
+            }
+        }
+
+        /// <summary>
+        /// Update notification preferences for the authenticated user.
+        /// </summary>
+        [HttpPut("me/notifications")]
+        public async Task<ActionResult<ApiResponse<GetNotificationPreferencesResponse>>> UpdateNotificationPreferences(
+            [FromBody] UpdateNotificationPreferencesRequest request)
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                                  ?? User.FindFirst("sub")?.Value;
+
+                if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+                {
+                    return Unauthorized(ApiResponse<GetNotificationPreferencesResponse>.FailureResult(
+                        "Invalid authentication token", "INVALID_TOKEN"));
+                }
+
+                var profile = await _context.UserProfiles
+                    .FirstOrDefaultAsync(p => p.UserId == userId);
+
+                if (profile == null)
+                {
+                    return NotFound(ApiResponse<GetNotificationPreferencesResponse>.FailureResult(
+                        "Profile not found", "PROFILE_NOT_FOUND"));
+                }
+
+                var prefs = await _context.NotificationPreferences
+                    .FirstOrDefaultAsync(n => n.UserId == userId);
+
+                if (prefs == null)
+                {
+                    prefs = new NotificationPreferences
+                    {
+                        UserProfileId = profile.Id,
+                        UserId = userId,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    _context.NotificationPreferences.Add(prefs);
+                }
+
+                if (request.PushEnabled.HasValue) prefs.PushEnabled = request.PushEnabled.Value;
+                if (request.MatchNotifications.HasValue) prefs.MatchNotifications = request.MatchNotifications.Value;
+                if (request.MessageNotifications.HasValue) prefs.MessageNotifications = request.MessageNotifications.Value;
+                if (request.SparkNotifications.HasValue) prefs.SparkNotifications = request.SparkNotifications.Value;
+
+                prefs.UpdatedAt = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Updated notification preferences for user {UserId}", userId);
+
+                return Ok(ApiResponse<GetNotificationPreferencesResponse>.SuccessResult(
+                    new GetNotificationPreferencesResponse
+                    {
+                        PushEnabled = prefs.PushEnabled,
+                        MatchNotifications = prefs.MatchNotifications,
+                        MessageNotifications = prefs.MessageNotifications,
+                        SparkNotifications = prefs.SparkNotifications,
+                        UpdatedAt = prefs.UpdatedAt
+                    }));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating notification preferences");
+                return StatusCode(500, ApiResponse<GetNotificationPreferencesResponse>.FailureResult(
+                    "Error updating notification preferences", "INTERNAL_ERROR"));
             }
         }
 

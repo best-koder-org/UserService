@@ -213,6 +213,10 @@ namespace UserService.Controllers
                     userProfile.Languages = JsonSerializer.Serialize(updateDto.Languages);
                 if (!string.IsNullOrEmpty(updateDto.HobbyList))
                     userProfile.HobbyList = updateDto.HobbyList;
+                if (!string.IsNullOrEmpty(updateDto.PrimaryPhotoUrl))
+                    userProfile.PrimaryPhotoUrl = updateDto.PrimaryPhotoUrl;
+                if (!string.IsNullOrEmpty(updateDto.PhotoUrls))
+                    userProfile.PhotoUrls = updateDto.PhotoUrls;
                 if (!string.IsNullOrEmpty(updateDto.InstagramHandle))
                     userProfile.InstagramHandle = updateDto.InstagramHandle;
 

@@ -97,6 +97,18 @@ namespace UserService.Models
         [StringLength(50)]
         public string DrinkingStatus { get; set; } = string.Empty; // Never, Sometimes, Often
 
+        [StringLength(50)]
+        public string PoliticalViews { get; set; } = string.Empty; // Liberal, Moderate, Conservative, Apolitical, Prefer not to say
+
+        [StringLength(50)]
+        public string Pets { get; set; } = string.Empty; // Dog, Cat, Dog & Cat, Other pet, No pets, Pet-free, Prefer not to say
+
+        [StringLength(30)]
+        public string ZodiacSign { get; set; } = string.Empty; // Auto-computed from DateOfBirth
+
+        [StringLength(20)]
+        public string MessageFilterLevel { get; set; } = "Off"; // Off, Disrespectful, AllOffensive
+
         public bool WantsChildren { get; set; }
         public bool HasChildren { get; set; }
 
@@ -185,6 +197,15 @@ namespace UserService.Models
         /// <summary>App flavor this user signed up through (hinge, fleet)</summary>
         [StringLength(20)]
         public string FlavorId { get; set; } = "dejting";
+
+        // Push notification (FCM)
+        [StringLength(500)]
+        public string? FcmToken { get; set; }
+
+        [StringLength(20)]
+        public string? FcmPlatform { get; set; } // android, iOS
+
+        public DateTime? FcmTokenUpdatedAt { get; set; }
 
         // Calculated fields
         [NotMapped]

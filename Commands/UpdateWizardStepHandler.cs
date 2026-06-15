@@ -48,7 +48,7 @@ public class UpdateWizardStepHandler : IRequestHandler<UpdateWizardStepCommand, 
                         return Result<UserProfileDetailDto>.Failure("Invalid basic info - check age requirement (18+)");
                     }
 
-                    profile.Name = $"{request.BasicInfo.FirstName} {request.BasicInfo.LastName}";
+                    profile.Name = request.BasicInfo.FirstName;
                     profile.DateOfBirth = request.BasicInfo.DateOfBirth;
                     profile.Gender = request.BasicInfo.Gender;
 

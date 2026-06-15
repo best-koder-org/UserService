@@ -13,6 +13,7 @@ namespace UserService.Data
 
         public DbSet<UserProfile> UserProfiles { get; set; }
         public DbSet<MatchPreferences> MatchPreferences { get; set; }
+        public DbSet<NotificationPreferences> NotificationPreferences { get; set; }
         public DbSet<SupportTicket> SupportTickets { get; set; }
         public DbSet<Entitlement> Entitlements { get; set; }
         public DbSet<SparksLedgerEntry> SparksLedger { get; set; }
@@ -95,6 +96,16 @@ namespace UserService.Data
             modelBuilder.Entity<MatchPreferences>()
                 .HasIndex(m => m.UserProfileId)
                 .HasDatabaseName("IX_MatchPreferences_UserProfileId");
+
+            // NotificationPreferences indexes
+            modelBuilder.Entity<NotificationPreferences>()
+                .HasIndex(n => n.UserId)
+                .IsUnique()
+                .HasDatabaseName("IX_NotificationPreferences_UserId");
+
+            modelBuilder.Entity<NotificationPreferences>()
+                .HasIndex(n => n.UserProfileId)
+                .HasDatabaseName("IX_NotificationPreferences_UserProfileId");
 
             // SupportTicket configuration (T091)
             modelBuilder.Entity<SupportTicket>()

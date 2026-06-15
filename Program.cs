@@ -83,6 +83,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddScoped<IPhotoService, PhotoService>();
 builder.Services.AddScoped<IVerificationService, VerificationService>();
 builder.Services.AddScoped<IAccountDeletionService, AccountDeletionService>();
+builder.Services.AddScoped<IFeatureGate, FeatureGate>();
 builder.Services.AddSingleton<ISafetyService, UserService.Services.SafetyService>();
 builder.Services.AddScoped<IProfileCompletenessService, ProfileCompletenessService>();
 builder.Services.AddHttpClient();
