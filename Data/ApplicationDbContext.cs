@@ -18,6 +18,10 @@ namespace UserService.Data
         public DbSet<Entitlement> Entitlements { get; set; }
         public DbSet<SparksLedgerEntry> SparksLedger { get; set; }
         public DbSet<SparkRecord> Sparks { get; set; }
+        public DbSet<PsykologSession> PsykologSessions { get; set; }
+        public DbSet<PsykologMessage> PsykologMessages { get; set; }
+        public DbSet<UserTheme> UserThemes { get; set; }
+        public DbSet<ReflectionVector> ReflectionVectors { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -141,6 +145,43 @@ namespace UserService.Data
             modelBuilder.Entity<SparksLedgerEntry>()
                 .HasIndex(s => s.UserId)
                 .HasDatabaseName("IX_SparksLedger_UserId");
+
+            // PsykologSession indexes
+            modelBuilder.Entity<PsykologSession>()
+                .HasIndex(p => p.KeycloakId)
+                .HasDatabaseName("IX_PsykologSession_KeycloakId");
+
+            modelBuilder.Entity<PsykologSession>()
+                .Property(p => p.Status)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            // PsykologMessage FK
+            modelBuilder.Entity<PsykologMessage>()
+                .HasOne(m => m.Session)
+                .WithMany(s => s.Messages)
+                .HasForeignKey(m => m.SessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<PsykologMessage>()
+                .Property(m => m.Role)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            // UserTheme indexes
+            modelBuilder.Entity<UserTheme>()
+                .HasIndex(t => t.KeycloakId)
+                .HasDatabaseName("IX_UserTheme_KeycloakId");
+
+            // ReflectionVector — one per user
+            modelBuilder.Entity<ReflectionVector>()
+                .HasIndex(r => r.KeycloakId)
+                .IsUnique()
+                .HasDatabaseName("IX_ReflectionVector_KeycloakId_Unique");
+
+            modelBuilder.Entity<ReflectionVector>()
+                .Property(r => r.VectorJson)
+                .HasColumnType("mediumtext");
         }
     }
 }
