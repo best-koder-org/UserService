@@ -108,7 +108,7 @@ public class SearchUserProfilesHandler : IRequestHandler<SearchUserProfilesQuery
                     PrimaryPhotoUrl = p.PrimaryPhotoUrl ?? string.Empty,
                     Bio = trimmedBio,
                     Occupation = p.Occupation ?? string.Empty,
-                    Interests = JsonSerializer.Deserialize<List<string>>(p.Interests ?? "[]") ?? new List<string>(),
+                    Interests = DeserializeInterests(p.Interests),
                     IsVerified = p.IsVerified,
                     IsOnline = p.IsOnline,
                     LastActiveAt = p.LastActiveAt
@@ -132,6 +132,28 @@ public class SearchUserProfilesHandler : IRequestHandler<SearchUserProfilesQuery
         {
             _logger.LogError(ex, "Error searching user profiles");
             return Result<SearchResultDto<UserProfileSummaryDto>>.Failure(ex);
+        }
+    }
+
+    /// <summary>
+    /// Safely deserializes the stored Interests JSON. Treats null, empty,
+    /// whitespace, or malformed values as an empty list so a single bad row
+    /// never fails the entire search.
+    /// </summary>
+    private static List<string> DeserializeInterests(string? interests)
+    {
+        if (string.IsNullOrWhiteSpace(interests))
+        {
+            return new List<string>();
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(interests) ?? new List<string>();
+        }
+        catch (JsonException)
+        {
+            return new List<string>();
         }
     }
 }

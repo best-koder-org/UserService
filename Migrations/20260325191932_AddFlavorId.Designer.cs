@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using UserService.Data;
 
@@ -11,9 +12,11 @@ using UserService.Data;
 namespace UserService.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260325191932_AddFlavorId")]
+    partial class AddFlavorId
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,41 +24,6 @@ namespace UserService.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
-
-            modelBuilder.Entity("UserService.Models.Entitlement", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<DateTime?>("ExpiresAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Tier")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("IX_Entitlement_UserId");
-
-                    b.ToTable("Entitlements");
-                });
 
             modelBuilder.Entity("UserService.Models.MatchPreferences", b =>
                 {
@@ -148,243 +116,6 @@ namespace UserService.Migrations
                     b.ToTable("MatchPreferences");
                 });
 
-            modelBuilder.Entity("UserService.Models.NotificationPreferences", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<bool>("MatchNotifications")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("MessageNotifications")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("PushEnabled")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("SparkNotifications")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<int>("UserProfileId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId")
-                        .IsUnique()
-                        .HasDatabaseName("IX_NotificationPreferences_UserId");
-
-                    b.HasIndex("UserProfileId")
-                        .HasDatabaseName("IX_NotificationPreferences_UserProfileId");
-
-                    b.ToTable("NotificationPreferences");
-                });
-
-            modelBuilder.Entity("UserService.Models.PsykologMessage", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Content")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
-                    b.Property<int>("SessionId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SessionId");
-
-                    b.ToTable("PsykologMessages");
-                });
-
-            modelBuilder.Entity("UserService.Models.PsykologSession", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime?>("EndedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("KeycloakId")
-                        .IsRequired()
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<int>("SessionNumber")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("StartedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
-                    b.Property<int>("ThemeCount")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("KeycloakId")
-                        .HasDatabaseName("IX_PsykologSession_KeycloakId");
-
-                    b.ToTable("PsykologSessions");
-                });
-
-            modelBuilder.Entity("UserService.Models.SparkRecord", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<bool>("IsRead")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("Message")
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
-
-                    b.Property<string>("RecipientUserId")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<string>("SenderUserId")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("SparkRecords");
-                });
-
-            modelBuilder.Entity("UserService.Models.SparksLedgerEntry", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<int>("BalanceAfter")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int>("Delta")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Reason")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("IX_SparksLedger_UserId");
-
-                    b.ToTable("SparksLedger");
-                });
-
-            modelBuilder.Entity("UserService.Models.SupportTicket", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Category")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
-                    b.Property<string>("ContactEmail")
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasMaxLength(4000)
-                        .HasColumnType("varchar(4000)");
-
-                    b.Property<DateTime?>("ResolvedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
-                    b.Property<string>("Subject")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
-
-                    b.Property<string>("TicketId")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("char(36)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TicketId")
-                        .IsUnique()
-                        .HasDatabaseName("IX_SupportTicket_TicketId");
-
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("IX_SupportTicket_UserId");
-
-                    b.ToTable("SupportTickets");
-                });
-
             modelBuilder.Entity("UserService.Models.UserProfile", b =>
                 {
                     b.Property<int>("Id")
@@ -449,17 +180,6 @@ namespace UserService.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("varchar(50)");
-
-                    b.Property<string>("FcmPlatform")
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
-                    b.Property<string>("FcmToken")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
-
-                    b.Property<DateTime?>("FcmTokenUpdatedAt")
-                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("FlavorId")
                         .IsRequired()
@@ -541,11 +261,6 @@ namespace UserService.Migrations
                     b.Property<decimal>("Longitude")
                         .HasColumnType("decimal(9,6)");
 
-                    b.Property<string>("MessageFilterLevel")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -576,11 +291,6 @@ namespace UserService.Migrations
                     b.Property<DateTime?>("PausedAt")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<string>("Pets")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
-
                     b.Property<int>("PhotoCount")
                         .HasColumnType("int");
 
@@ -588,11 +298,6 @@ namespace UserService.Migrations
                         .IsRequired()
                         .HasMaxLength(2000)
                         .HasColumnType("varchar(2000)");
-
-                    b.Property<string>("PoliticalViews")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("Preferences")
                         .IsRequired()
@@ -688,11 +393,6 @@ namespace UserService.Migrations
                     b.Property<bool>("WantsChildren")
                         .HasColumnType("tinyint(1)");
 
-                    b.Property<string>("ZodiacSign")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("varchar(30)");
-
                     b.HasKey("Id");
 
                     b.HasIndex("AccountStatus")
@@ -745,43 +445,6 @@ namespace UserService.Migrations
                     b.ToTable("UserProfiles");
                 });
 
-            modelBuilder.Entity("UserService.Models.UserTheme", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Axis")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<double>("Intensity")
-                        .HasColumnType("double");
-
-                    b.Property<string>("KeycloakId")
-                        .IsRequired()
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<string>("Label")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<int>("SessionId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("KeycloakId")
-                        .HasDatabaseName("IX_UserTheme_KeycloakId");
-
-                    b.ToTable("UserThemes");
-                });
-
             modelBuilder.Entity("UserService.Models.MatchPreferences", b =>
                 {
                     b.HasOne("UserService.Models.UserProfile", "UserProfile")
@@ -791,22 +454,6 @@ namespace UserService.Migrations
                         .IsRequired();
 
                     b.Navigation("UserProfile");
-                });
-
-            modelBuilder.Entity("UserService.Models.PsykologMessage", b =>
-                {
-                    b.HasOne("UserService.Models.PsykologSession", "Session")
-                        .WithMany("Messages")
-                        .HasForeignKey("SessionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Session");
-                });
-
-            modelBuilder.Entity("UserService.Models.PsykologSession", b =>
-                {
-                    b.Navigation("Messages");
                 });
 #pragma warning restore 612, 618
         }

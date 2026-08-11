@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using UserService.Data;
 
@@ -11,9 +12,11 @@ using UserService.Data;
 namespace UserService.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260605075136_AddMonetization")]
+    partial class AddMonetization
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -146,150 +149,6 @@ namespace UserService.Migrations
                         .HasDatabaseName("IX_MatchPreferences_UserProfileId");
 
                     b.ToTable("MatchPreferences");
-                });
-
-            modelBuilder.Entity("UserService.Models.NotificationPreferences", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<bool>("MatchNotifications")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("MessageNotifications")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("PushEnabled")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("SparkNotifications")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<int>("UserProfileId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId")
-                        .IsUnique()
-                        .HasDatabaseName("IX_NotificationPreferences_UserId");
-
-                    b.HasIndex("UserProfileId")
-                        .HasDatabaseName("IX_NotificationPreferences_UserProfileId");
-
-                    b.ToTable("NotificationPreferences");
-                });
-
-            modelBuilder.Entity("UserService.Models.PsykologMessage", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Content")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
-                    b.Property<int>("SessionId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SessionId");
-
-                    b.ToTable("PsykologMessages");
-                });
-
-            modelBuilder.Entity("UserService.Models.PsykologSession", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime?>("EndedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("KeycloakId")
-                        .IsRequired()
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<int>("SessionNumber")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("StartedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
-                    b.Property<int>("ThemeCount")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("KeycloakId")
-                        .HasDatabaseName("IX_PsykologSession_KeycloakId");
-
-                    b.ToTable("PsykologSessions");
-                });
-
-            modelBuilder.Entity("UserService.Models.SparkRecord", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<bool>("IsRead")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("Message")
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
-
-                    b.Property<string>("RecipientUserId")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<string>("SenderUserId")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("SparkRecords");
                 });
 
             modelBuilder.Entity("UserService.Models.SparksLedgerEntry", b =>
@@ -541,11 +400,6 @@ namespace UserService.Migrations
                     b.Property<decimal>("Longitude")
                         .HasColumnType("decimal(9,6)");
 
-                    b.Property<string>("MessageFilterLevel")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -576,11 +430,6 @@ namespace UserService.Migrations
                     b.Property<DateTime?>("PausedAt")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<string>("Pets")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
-
                     b.Property<int>("PhotoCount")
                         .HasColumnType("int");
 
@@ -588,11 +437,6 @@ namespace UserService.Migrations
                         .IsRequired()
                         .HasMaxLength(2000)
                         .HasColumnType("varchar(2000)");
-
-                    b.Property<string>("PoliticalViews")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("Preferences")
                         .IsRequired()
@@ -688,11 +532,6 @@ namespace UserService.Migrations
                     b.Property<bool>("WantsChildren")
                         .HasColumnType("tinyint(1)");
 
-                    b.Property<string>("ZodiacSign")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("varchar(30)");
-
                     b.HasKey("Id");
 
                     b.HasIndex("AccountStatus")
@@ -745,43 +584,6 @@ namespace UserService.Migrations
                     b.ToTable("UserProfiles");
                 });
 
-            modelBuilder.Entity("UserService.Models.UserTheme", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Axis")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<double>("Intensity")
-                        .HasColumnType("double");
-
-                    b.Property<string>("KeycloakId")
-                        .IsRequired()
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<string>("Label")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<int>("SessionId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("KeycloakId")
-                        .HasDatabaseName("IX_UserTheme_KeycloakId");
-
-                    b.ToTable("UserThemes");
-                });
-
             modelBuilder.Entity("UserService.Models.MatchPreferences", b =>
                 {
                     b.HasOne("UserService.Models.UserProfile", "UserProfile")
@@ -791,22 +593,6 @@ namespace UserService.Migrations
                         .IsRequired();
 
                     b.Navigation("UserProfile");
-                });
-
-            modelBuilder.Entity("UserService.Models.PsykologMessage", b =>
-                {
-                    b.HasOne("UserService.Models.PsykologSession", "Session")
-                        .WithMany("Messages")
-                        .HasForeignKey("SessionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Session");
-                });
-
-            modelBuilder.Entity("UserService.Models.PsykologSession", b =>
-                {
-                    b.Navigation("Messages");
                 });
 #pragma warning restore 612, 618
         }

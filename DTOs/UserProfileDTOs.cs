@@ -39,6 +39,9 @@ namespace UserService.DTOs
         public string Religion { get; set; } = string.Empty;
         public string SmokingStatus { get; set; } = string.Empty;
         public string DrinkingStatus { get; set; } = string.Empty;
+        public string PoliticalViews { get; set; } = string.Empty;
+        public string Pets { get; set; } = string.Empty;
+        public string ZodiacSign { get; set; } = string.Empty;
         public bool WantsChildren { get; set; }
         public bool HasChildren { get; set; }
         public string RelationshipType { get; set; } = string.Empty;
@@ -64,6 +67,8 @@ namespace UserService.DTOs
         public List<string>? Languages { get; set; }
         public string? HobbyList { get; set; }
         public string? InstagramHandle { get; set; }
+        public string? PrimaryPhotoUrl { get; set; }
+        public string? PhotoUrls { get; set; }
     }
 
     public class LocationUpdateDto
@@ -104,6 +109,8 @@ namespace UserService.DTOs
         public bool AllowMessageFromMatches { get; set; } = true;
         public bool AllowMessageFromEveryone { get; set; } = false;
         public bool IsPrivate { get; set; } = false;
+        public string MessageFilterLevel { get; set; } = "Off";
+        public bool ReadReceiptsEnabled { get; set; } = false;
     }
 
     public class VerificationRequestDto
@@ -176,6 +183,9 @@ namespace UserService.DTOs
         public string Ethnicity { get; set; } = string.Empty;
         public string SmokingStatus { get; set; } = string.Empty;
         public string DrinkingStatus { get; set; } = string.Empty;
+        public string PoliticalViews { get; set; } = string.Empty;
+        public string Pets { get; set; } = string.Empty;
+        public string ZodiacSign { get; set; } = string.Empty;
         public bool WantsChildren { get; set; }
         public bool HasChildren { get; set; }
         public string RelationshipType { get; set; } = string.Empty;

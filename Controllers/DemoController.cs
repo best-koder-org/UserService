@@ -128,10 +128,10 @@ namespace UserService.Controllers
             var profiles = new List<UserProfileSummaryDto>();
             var names = new[]
             {
-                "Emma Johnson", "Sofia Martinez", "Isabella Thompson", "Olivia Garcia", "Ava Rodriguez",
-                "Mia Williams", "Amelia Brown", "Charlotte Davis", "Luna Miller", "Harper Wilson",
-                "Evelyn Moore", "Abigail Taylor", "Emily Anderson", "Elizabeth Thomas", "Sofia Jackson",
-                "Avery White", "Ella Harris", "Scarlett Martin", "Grace Lee", "Aria Clark"
+                "Emma", "Sofia", "Isabella", "Olivia", "Ava",
+                "Mia", "Amelia", "Charlotte", "Luna", "Harper",
+                "Evelyn", "Abigail", "Emily", "Elizabeth", "Sofia",
+                "Avery", "Ella", "Scarlett", "Grace", "Aria"
             };
 
             var cities = new[]

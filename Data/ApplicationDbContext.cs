@@ -13,8 +13,15 @@ namespace UserService.Data
 
         public DbSet<UserProfile> UserProfiles { get; set; }
         public DbSet<MatchPreferences> MatchPreferences { get; set; }
+        public DbSet<NotificationPreferences> NotificationPreferences { get; set; }
+        public DbSet<SupportTicket> SupportTickets { get; set; }
+        public DbSet<Entitlement> Entitlements { get; set; }
+        public DbSet<SparksLedgerEntry> SparksLedger { get; set; }
+        public DbSet<SparkRecord> Sparks { get; set; }
         public DbSet<PsykologSession> PsykologSessions { get; set; }
         public DbSet<PsykologMessage> PsykologMessages { get; set; }
+        public DbSet<UserTheme> UserThemes { get; set; }
+        public DbSet<ReflectionVector> ReflectionVectors { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -94,17 +101,87 @@ namespace UserService.Data
                 .HasIndex(m => m.UserProfileId)
                 .HasDatabaseName("IX_MatchPreferences_UserProfileId");
 
-            // PsykologSession configuration
+            // NotificationPreferences indexes
+            modelBuilder.Entity<NotificationPreferences>()
+                .HasIndex(n => n.UserId)
+                .IsUnique()
+                .HasDatabaseName("IX_NotificationPreferences_UserId");
+
+            modelBuilder.Entity<NotificationPreferences>()
+                .HasIndex(n => n.UserProfileId)
+                .HasDatabaseName("IX_NotificationPreferences_UserProfileId");
+
+            // SupportTicket configuration (T091)
+            modelBuilder.Entity<SupportTicket>()
+                .HasIndex(t => t.TicketId)
+                .IsUnique()
+                .HasDatabaseName("IX_SupportTicket_TicketId");
+
+            modelBuilder.Entity<SupportTicket>()
+                .HasIndex(t => t.UserId)
+                .HasDatabaseName("IX_SupportTicket_UserId");
+
+            modelBuilder.Entity<SupportTicket>()
+                .Property(t => t.Category)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            modelBuilder.Entity<SupportTicket>()
+                .Property(t => t.Status)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            // Entitlement (P1.1)
+            modelBuilder.Entity<Entitlement>()
+                .HasIndex(e => e.UserId)
+                .HasDatabaseName("IX_Entitlement_UserId");
+
+            modelBuilder.Entity<Entitlement>()
+                .Property(e => e.Tier)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            // SparksLedger (P1.1)
+            modelBuilder.Entity<SparksLedgerEntry>()
+                .HasIndex(s => s.UserId)
+                .HasDatabaseName("IX_SparksLedger_UserId");
+
+            // PsykologSession indexes
             modelBuilder.Entity<PsykologSession>()
-                .HasIndex(s => s.KeycloakId)
+                .HasIndex(p => p.KeycloakId)
                 .HasDatabaseName("IX_PsykologSession_KeycloakId");
 
-            // PsykologMessage configuration
+            modelBuilder.Entity<PsykologSession>()
+                .Property(p => p.Status)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            // PsykologMessage FK
             modelBuilder.Entity<PsykologMessage>()
                 .HasOne(m => m.Session)
                 .WithMany(s => s.Messages)
                 .HasForeignKey(m => m.SessionId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<PsykologMessage>()
+                .Property(m => m.Role)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            // UserTheme indexes
+            modelBuilder.Entity<UserTheme>()
+                .HasIndex(t => t.KeycloakId)
+                .HasDatabaseName("IX_UserTheme_KeycloakId");
+
+            // ReflectionVector — one per user
+            modelBuilder.Entity<ReflectionVector>()
+                .HasIndex(r => r.KeycloakId)
+                .IsUnique()
+                .HasDatabaseName("IX_ReflectionVector_KeycloakId_Unique");
+
+            modelBuilder.Entity<ReflectionVector>()
+                .Property(r => r.VectorJson)
+                .HasColumnType("mediumtext");
         }
     }
 }

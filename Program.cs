@@ -44,39 +44,51 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     ));
 
 // Add CORS policy
+// CORS: config-driven origins — AllowAnyOrigin in dev, restricted in staging/production
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
+        if (allowedOrigins != null && allowedOrigins.Length > 0)
+        {
+            policy.WithOrigins(allowedOrigins)
+                  .AllowAnyMethod()
+                  .AllowAnyHeader()
+                  .AllowCredentials();
+        }
+        else
+        {
+            policy.AllowAnyOrigin()
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        }
     });
 });
 
 // Add services to the container.
-if (Environment.GetEnvironmentVariable("DEMO_MODE") == "true")
+var userDbConnectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(userDbConnectionString))
 {
-    builder.Services.AddDbContext<ApplicationDbContext>(options =>
-        options.UseInMemoryDatabase("UserServiceDemo"));
-    Console.WriteLine("UserService using in-memory database for demo mode");
+    throw new InvalidOperationException(
+        "UserService requires a configured ConnectionStrings:DefaultConnection (MySQL).");
 }
-else
-{
-    builder.Services.AddDbContext<ApplicationDbContext>(options =>
-        options.UseMySql(
-            builder.Configuration.GetConnectionString("DefaultConnection"),
-            new MySqlServerVersion(new Version(8, 0, 30))
-        ));
-    Console.WriteLine("UserService using MySQL database for production mode");
-}
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseMySql(
+        userDbConnectionString,
+        new MySqlServerVersion(new Version(8, 0, 30))
+    ));
 
 // Register application services
 builder.Services.AddScoped<IPhotoService, PhotoService>();
 builder.Services.AddScoped<IVerificationService, VerificationService>();
 builder.Services.AddScoped<IAccountDeletionService, AccountDeletionService>();
+builder.Services.AddScoped<IFeatureGate, FeatureGate>();
+builder.Services.AddScoped<IVectorEmbeddingService, VectorEmbeddingService>();
 builder.Services.AddSingleton<ISafetyService, UserService.Services.SafetyService>();
 builder.Services.AddScoped<IProfileCompletenessService, ProfileCompletenessService>();
+builder.Services.AddScoped<IPsykologService, PsykologService>();
+builder.Services.AddScoped<IVectorEmbeddingService, VectorEmbeddingService>();
 builder.Services.AddHttpClient();
 builder.Services.AddMemoryCache();
 builder.Services.AddCorrelationIds();
@@ -235,10 +247,7 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseCors(policy =>
-    policy.AllowAnyOrigin()
-          .AllowAnyMethod()
-          .AllowAnyHeader());
+app.UseCors("AllowAll");
 app.UseCorrelationIds();
 app.UseAuthentication();
 app.UseAuthorization();

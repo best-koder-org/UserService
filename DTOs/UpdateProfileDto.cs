@@ -20,4 +20,7 @@ public class UpdateProfileDto
     public string? Ethnicity { get; set; }
     public string? SmokingStatus { get; set; }
     public string? DrinkingStatus { get; set; }
+    public string? PoliticalViews { get; set; }
+    public string? Pets { get; set; }
+    public string? ZodiacSign { get; set; }
 }
