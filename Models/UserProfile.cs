@@ -161,6 +161,9 @@ namespace UserService.Models
         public bool IsPremium { get; set; } = false;
         public DateTime? PremiumExpiry { get; set; }
 
+        /// <summary>Read receipts — premium feature. When enabled, senders can see when their messages are read.</summary>
+        public bool ReadReceiptsEnabled { get; set; } = false;
+
         [StringLength(50)]
         public string SubscriptionType { get; set; } = string.Empty; // Basic, Plus, Gold
 

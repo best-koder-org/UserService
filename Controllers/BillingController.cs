@@ -121,15 +121,15 @@ public class BillingController : ControllerBase
         var catalog = new PremiumCatalogResponse(
             Plans: new List<PremiumPlanSku>
             {
-                new("premium_month", "Premium Month", "Full access for 30 days", 0, 30),
-                new("premium_3months", "Premium Quarter", "Full access for 90 days", 0, 90),
-                new("premium_year", "Premium Year", "Full access for 365 days — best value", 0, 365),
+                new("premium_month", "Premium Månad", "Full tillgång i 30 dagar", 149, 30),
+                new("premium_3months", "Premium Kvartal", "Full tillgång i 90 dagar — spara 20%", 299, 90),
+                new("premium_year", "Premium År", "Full tillgång i 365 dagar — bästa värdet", 599, 365),
             },
             Bundles: new List<SparksBundleSku>
             {
-                new("sparks_100", "Starter Pack", 100, 99),
-                new("sparks_500", "Boost Pack", 500, 399),
-                new("sparks_1500", "Super Pack", 1500, 999),
+                new("sparks_100", "Startpaket", 100, 199),
+                new("sparks_500", "Boostpaket", 500, 699),
+                new("sparks_1500", "Superspaket", 1500, 1499),
             }
         );
         return Ok(catalog);

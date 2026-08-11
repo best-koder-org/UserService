@@ -24,6 +24,27 @@ public class PsykologService : IPsykologService
     private const string GroqBaseUrl = "https://api.groq.com/openai/v1/chat/completions";
     private const string GroqModel = "llama-3.3-70b-versatile";
 
+    private static readonly Dictionary<string, string> AxisSuggestions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["emotionalStability"] = "Användaren har låg emotionell stabilitet. Föreslå övningar i känsloreglering. Fråga om stresshantering.",
+        ["socialEnergy"] = "Användaren har låg social energi. Föreslå strategier för social återhämtning. Fråga om sociala situationer.",
+        ["openness"] = "Användaren har låg öppenhet. Uppmuntra utforskande av nya perspektiv. Fråga om rädsla för sårbarhet.",
+        ["warmth"] = "Användaren har låg värme. Föreslå övningar i empati och kontakt. Fråga om känslomässig närhet.",
+        ["lifeStructure"] = "Användaren har låg struktur. Fråga om rutiner, balans och organisering.",
+        ["intimacyComfort"] = "Användaren har låg intimitetskomfort. Föreslå trappsteg för att bygga tillit. Fråga om rädsla för närhet.",
+        ["conflictStyle"] = "Användaren har låg konfliktstil. Föreslå tekniker för konstruktiv konflikthantering. Fråga om undvikandemönster.",
+    };
+
+    private static readonly Dictionary<string, string> AxisSwedishLabels = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["emotionalStability"] = "känslomässig stabilitet",
+        ["socialEnergy"] = "social energi",
+        ["openness"] = "öppenhet",
+        ["warmth"] = "värme",
+        ["lifeStructure"] = "livsstruktur",
+        ["intimacyComfort"] = "intimitetskomfort",
+        ["conflictStyle"] = "konfliktstil",
+    };
     private const string SystemPrompt =
         "Du är en varm, professionell psykologassistent som hjälper användare på en dejting-app att " +
         "förstå sig själva bättre – sina relationsmönster, anknytningstendenser och värderingar. " +
@@ -33,6 +54,39 @@ public class PsykologService : IPsykologService
         "Avslöja inte att du är en AI om du inte direkt frågas. " +
         "Diskutera aldrig andra specifika användare. " +
         "Håll fokus: relationer, anknytning, värderingar, självinsikt.";
+
+    private static string BuildSystemPrompt(PsykologSession session)
+    {
+        var prompt = SystemPrompt;
+
+        if (string.IsNullOrEmpty(session.WeakestAxesJson))
+            return prompt;
+
+        try
+        {
+            var axes = JsonSerializer.Deserialize<List<string>>(session.WeakestAxesJson);
+            if (axes == null || axes.Count == 0) return prompt;
+
+            var suggestions = new List<string>();
+            foreach (var axis in axes)
+            {
+                var cleanAxis = axis.Trim().ToLowerInvariant();
+                if (AxisSuggestions.TryGetValue(cleanAxis, out var suggestion))
+                {
+                    suggestions.Add(suggestion);
+                }
+            }
+
+            if (suggestions.Count > 0)
+            {
+                prompt += "\n\n[KONTEXTUELLA FÖRSLAG baserat på användarens svagaste radar-områden:]\n";
+                prompt += string.Join("\n", suggestions);
+            }
+        }
+        catch { /* gracelfull degradering */ }
+
+        return prompt;
+    }
 
     private const string ThemeExtractionPrompt =
         "Analysera följande samtal och extrahera 3-7 psykologiska teman. " +
@@ -77,6 +131,10 @@ public class PsykologService : IPsykologService
         };
         _db.PsykologSessions.Add(session);
         await _db.SaveChangesAsync();
+
+        // T633: Fetch radar profile and store weakest axes
+        _ = IdentifyWeakestAxesAsync(session);
+
         return session;
     }
 
@@ -102,7 +160,7 @@ public class PsykologService : IPsykologService
             .Select(m => new { role = m.Role == PsykologRole.User ? "user" : "assistant", content = m.Content })
             .ToList<object>();
 
-        var assistantReply = await CallLlmAsync(SystemPrompt, history, ct)
+        var assistantReply = await CallLlmAsync(BuildSystemPrompt(session), history, ct)
             ?? "Förlåt, jag har lite tekniska problem just nu. Försök igen om en stund.";
 
         // Store assistant response
@@ -153,6 +211,52 @@ public class PsykologService : IPsykologService
             .ToListAsync();
 
     // ── Internal helpers ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// T633: Fetches user's radar profile from MatchmakingService and identifies
+    /// the 3 weakest axes. Stores as JSON on the session for prompt injection.
+    /// </summary>
+    private async Task IdentifyWeakestAxesAsync(PsykologSession session)
+    {
+        try
+        {
+            var matchmakingUrl = _configuration["Services:MatchmakingService"] ?? "http://localhost:8083";
+            var http = _httpFactory.CreateClient();
+            http.Timeout = TimeSpan.FromSeconds(5);
+
+            var resp = await http.GetAsync($"{matchmakingUrl}/api/compatibility/radar/{session.KeycloakId}");
+            if (!resp.IsSuccessStatusCode) return;
+
+            var json = await resp.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(json);
+            var axesEl = doc.RootElement.GetProperty("axes");
+
+            var axes = new List<(string Name, double Value)>
+            {
+                ("emotionalStability", axesEl.GetProperty("emotionalStability").GetDouble()),
+                ("socialEnergy", axesEl.GetProperty("socialEnergy").GetDouble()),
+                ("openness", axesEl.GetProperty("openness").GetDouble()),
+                ("warmth", axesEl.GetProperty("warmth").GetDouble()),
+                ("lifeStructure", axesEl.GetProperty("lifeStructure").GetDouble()),
+                ("intimacyComfort", axesEl.GetProperty("intimacyComfort").GetDouble()),
+                ("conflictStyle", axesEl.GetProperty("conflictStyle").GetDouble()),
+            };
+
+            // Pick bottom 3 by value (weakest axes)
+            var weakest = axes.OrderBy(a => a.Value).Take(3).Select(a => a.Name).ToList();
+
+            session.WeakestAxesJson = JsonSerializer.Serialize(weakest);
+            await _db.SaveChangesAsync();
+
+            _logger.LogInformation("Identified weakest axes for {User}: {Axes}",
+                session.KeycloakId, string.Join(", ", weakest));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to fetch radar profile for axis-based suggestions (T633)");
+            // Graceful degradation — no axis suggestions this session
+        }
+    }
 
     private async Task ExtractThemesAsync(PsykologSession session)
     {

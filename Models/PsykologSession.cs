@@ -12,5 +12,8 @@ public class PsykologSession
     public PsykologSessionStatus Status { get; set; } = PsykologSessionStatus.Active;
     public int SessionNumber { get; set; }
 
+    /// <summary>JSON array of the 3 weakest radar axis labels (T633).</summary>
+    public string? WeakestAxesJson { get; set; }
+
     public List<PsykologMessage> Messages { get; set; } = [];
 }

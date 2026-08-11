@@ -290,6 +290,7 @@ namespace UserService.Controllers
                 userProfile.AllowMessageFromMatches = privacyDto.AllowMessageFromMatches;
                 userProfile.AllowMessageFromEveryone = privacyDto.AllowMessageFromEveryone;
                 userProfile.IsPrivate = privacyDto.IsPrivate;
+                userProfile.ReadReceiptsEnabled = privacyDto.ReadReceiptsEnabled;
                 userProfile.UpdatedAt = DateTime.UtcNow;
 
                 await _context.SaveChangesAsync();

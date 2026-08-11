@@ -110,6 +110,7 @@ namespace UserService.DTOs
         public bool AllowMessageFromEveryone { get; set; } = false;
         public bool IsPrivate { get; set; } = false;
         public string MessageFilterLevel { get; set; } = "Off";
+        public bool ReadReceiptsEnabled { get; set; } = false;
     }
 
     public class VerificationRequestDto
