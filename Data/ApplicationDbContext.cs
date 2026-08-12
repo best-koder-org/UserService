@@ -22,10 +22,16 @@ namespace UserService.Data
         public DbSet<PsykologMessage> PsykologMessages { get; set; }
         public DbSet<UserTheme> UserThemes { get; set; }
         public DbSet<ReflectionVector> ReflectionVectors { get; set; }
+        public DbSet<AppVersionReport> AppVersionReports { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            // AppVersionReport index
+            modelBuilder.Entity<AppVersionReport>()
+                .HasIndex(r => r.KeycloakId)
+                .HasDatabaseName("IX_AppVersionReport_KeycloakId");
 
             // UserProfile indexes for query optimization
             modelBuilder.Entity<UserProfile>()
