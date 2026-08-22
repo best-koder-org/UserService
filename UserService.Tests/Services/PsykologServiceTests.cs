@@ -265,4 +265,43 @@ public class PsykologServiceTests : IDisposable
         var sessions = await _svc.GetSessionsAsync("u-stale");
         Assert.All(sessions, s => Assert.Equal(PsykologSessionStatus.Completed, s.Status));
     }
+
+    // ── Bio audit (dating coach) ──────────────────────────────────────────
+
+    [Fact]
+    public async Task BioAudit_NoThemes_ReturnsNull()
+    {
+        Environment.SetEnvironmentVariable("GROQ_API_KEY", null);
+        Assert.Null(await _svc.BioAuditAsync("u-nobio-themes"));
+    }
+
+    [Fact]
+    public async Task BioAudit_NoBio_ReturnsNull()
+    {
+        Environment.SetEnvironmentVariable("GROQ_API_KEY", null);
+        _db.UserThemes.Add(new UserTheme
+        {
+            KeycloakId = "u-nobio", Label = "Openness", Axis = "BigFive",
+            Intensity = 0.8, SessionId = 1, CreatedAt = DateTime.UtcNow
+        });
+        await _db.SaveChangesAsync();
+
+        Assert.Null(await _svc.BioAuditAsync("u-nobio"));
+    }
+
+    [Fact]
+    public async Task BioAudit_NoGroqKey_ReturnsNull()
+    {
+        Environment.SetEnvironmentVariable("GROQ_API_KEY", null);
+        var userId = Guid.NewGuid();
+        _db.UserThemes.Add(new UserTheme
+        {
+            KeycloakId = userId.ToString(), Label = "Openness", Axis = "BigFive",
+            Intensity = 0.8, SessionId = 1, CreatedAt = DateTime.UtcNow
+        });
+        _db.UserProfiles.Add(new UserProfile { UserId = userId, Bio = "Jag gillar att resa och umgås med vänner." });
+        await _db.SaveChangesAsync();
+
+        Assert.Null(await _svc.BioAuditAsync(userId.ToString()));
+    }
 }

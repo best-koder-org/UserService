@@ -44,7 +44,7 @@ public class VectorEmbeddingService : IVectorEmbeddingService
     public async Task<float[]> UpdateVectorAsync(string keycloakId, CancellationToken ct = default)
     {
         var themes = await _context.UserThemes
-            .Where(t => t.KeycloakId == keycloakId)
+            .Where(t => t.KeycloakId == keycloakId && !t.Axis.StartsWith("Partner"))
             .ToListAsync(ct);
 
         var sessions = await _context.PsykologSessions

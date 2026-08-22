@@ -116,6 +116,20 @@ public class PsykologController : ControllerBase
         }));
     }
 
+    // POST /api/psykolog/bio-audit — compare bio against extracted themes (recommendation only)
+    [HttpPost("bio-audit")]
+    public async Task<IActionResult> BioAudit()
+    {
+        var userId = GetUserId();
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+        var suggestions = await _psykolog.BioAuditAsync(userId);
+        if (suggestions == null)
+            return Ok(new { suggestions = Array.Empty<string>(), note = "Gör en session först (eller fyll i din bio) så kan jag jämföra dina teman med din profil." });
+
+        return Ok(new { suggestions });
+    }
+
     // GET /api/psykolog/vector-similarity/{otherKeycloakId}
     [HttpGet("vector-similarity/{otherKeycloakId}")]
     public async Task<IActionResult> GetVectorSimilarity(string otherKeycloakId)

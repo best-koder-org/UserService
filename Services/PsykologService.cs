@@ -15,6 +15,7 @@ public interface IPsykologService
     Task<List<PsykologSession>> GetSessionsAsync(string keycloakId);
     Task<List<UserTheme>> GetThemesAsync(string keycloakId);
     Task<List<PsykologMessage>?> GetMessagesAsync(int sessionId, string keycloakId);
+    Task<List<string>?> BioAuditAsync(string keycloakId);
 }
 
 public class PsykologService : IPsykologService
@@ -51,14 +52,15 @@ public class PsykologService : IPsykologService
         ["conflictStyle"] = "konfliktstil",
     };
     private const string SystemPrompt =
-        "Du är en varm, professionell psykologassistent som hjälper användare på en dejting-app att " +
-        "förstå sig själva bättre – sina relationsmönster, anknytningstendenser och värderingar. " +
-        "Svara alltid på svenska. Ställ öppna, reflekterande frågor. Var empatisk men aldrig klinisk. " +
+        "Du är en varm, professionell relationsexpert och dating-coach som hjälper användare på en dejting-app " +
+        "att (1) förstå sig själva bättre — sina relationsmönster, anknytningstendenser och värderingar — och " +
+        "(2) utforska vilken typ av partner de letar efter. Svara alltid på svenska. Ställ öppna, reflekterande " +
+        "frågor, en i taget. Var empatisk, konkret och coachande, men aldrig klinisk. " +
         "VIKTIGT: Ställ aldrig diagnos. Förskriv aldrig medicin. " +
         "Vid tecken på kris (suicidtankar, allvarlig ångest) — hänvisa till 112 eller Mind (mind.se, telefon 90101). " +
         "Avslöja inte att du är en AI om du inte direkt frågas. " +
         "Diskutera aldrig andra specifika användare. " +
-        "Håll fokus: relationer, anknytning, värderingar, självinsikt.";
+        "Håll fokus: relationer, anknytning, värderingar, självinsikt och partnerpreferenser.";
 
     private static string BuildSystemPrompt(PsykologSession session)
     {
@@ -95,8 +97,10 @@ public class PsykologService : IPsykologService
 
     private const string ThemeExtractionPrompt =
         "Analysera följande samtal och extrahera 3-7 psykologiska teman. " +
+        "Teman om ANVÄNDAREN SJÄLV använder axis \"BigFive\", \"Attachment\" eller \"Values\". " +
+        "Teman om VILKEN PARTNER användaren letar efter använder axis \"PartnerValue\", \"PartnerAttachment\" eller \"PartnerTrait\" (label beskriver egenskapen/önskemålet). " +
         "Returnera ENBART giltig JSON i formatet: " +
-        "{\"themes\":[{\"label\":\"string\",\"intensity\":0.0-1.0,\"axis\":\"BigFive|Attachment|Values\"}]}. " +
+        "{\"themes\":[{\"label\":\"string\",\"intensity\":0.0-1.0,\"axis\":\"string\"}]}. " +
         "Inga förklaringar, bara JSON.";
 
     private readonly ApplicationDbContext _db;
@@ -244,6 +248,63 @@ public class PsykologService : IPsykologService
             .Where(m => m.SessionId == sessionId)
             .OrderBy(m => m.CreatedAt)
             .ToListAsync();
+    }
+
+    /// <summary>
+    /// Dating-coach: compare the user's extracted themes against their profile bio
+    /// and return kind, concrete suggestions (recommendation only — never edits).
+    /// Returns null when there are no themes, no bio, or no LLM key.
+    /// </summary>
+    public async Task<List<string>?> BioAuditAsync(string keycloakId)
+    {
+        var themes = await _db.UserThemes
+            .Where(t => t.KeycloakId == keycloakId && !t.Axis.StartsWith("Partner"))
+            .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync();
+        if (themes.Count == 0) return null;
+
+        string? bio = null;
+        if (Guid.TryParse(keycloakId, out var gid))
+        {
+            var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.UserId == gid);
+            bio = profile?.Bio;
+        }
+        if (string.IsNullOrWhiteSpace(bio)) return null;
+
+        var apiKey = Environment.GetEnvironmentVariable("GROQ_API_KEY");
+        if (string.IsNullOrEmpty(apiKey))
+        {
+            _logger.LogWarning("GROQ_API_KEY not set — bio audit unavailable");
+            return null;
+        }
+
+        var themeText = string.Join("; ", themes.Select(t => $"{t.Label} ({t.Axis}) {t.Intensity:F1}"));
+        var prompt =
+            $"Användarens utvunna psykologiska teman: {themeText}\n\n" +
+            $"Användarens nuvarande bio: \"{bio}\"\n\n" +
+            "Analysera om bio:n speglar vem användaren är. Returnera ENBART giltig JSON i formatet " +
+            "{\"suggestions\":[\"string\"]} med 3-5 konkreta, vänliga och handlingsbara förslag på svenska. " +
+            "Kategorier: saknas (ett starkt tema som inte syns i bio:n), motsägelse (bio:n säger X men teman antyder Y), klyscha (generisk fras).";
+
+        var messages = new List<object> { new { role = "user", content = prompt } };
+        var jsonResponse = await CallLlmAsync("Du är en relationsexpert och dating-coach. Returnera enbart giltig JSON.", messages);
+        if (jsonResponse == null) return null;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(jsonResponse);
+            if (!doc.RootElement.TryGetProperty("suggestions", out var arr)) return null;
+            return arr.EnumerateArray()
+                .Select(x => x.GetString())
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Cast<string>()
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Bio audit JSON parse failed");
+            return null;
+        }
     }
 
     /// <summary>
