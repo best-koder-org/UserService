@@ -18,6 +18,7 @@ namespace UserService.Tests.Middleware;
 public class ActivityPingMiddlewareTests
 {
     private bool _nextCalled;
+    private int _pingCount;
     private readonly Mock<IHttpClientFactory> _httpClientFactoryMock;
     private readonly Mock<HttpMessageHandler> _httpHandlerMock;
     private readonly IMemoryCache _cache;
@@ -31,6 +32,7 @@ public class ActivityPingMiddlewareTests
                 "SendAsync",
                 ItExpr.IsAny<HttpRequestMessage>(),
                 ItExpr.IsAny<CancellationToken>())
+            .Callback(() => Interlocked.Increment(ref _pingCount))
             .ReturnsAsync(new HttpResponseMessage { StatusCode = HttpStatusCode.OK });
 
         var httpClient = new HttpClient(_httpHandlerMock.Object);
@@ -76,6 +78,16 @@ public class ActivityPingMiddlewareTests
         return new DefaultHttpContext();
     }
 
+    /// <summary>
+    /// Polls until the expected number of fire-and-forget pings have executed
+    /// (up to ~3s). Avoids fixed-delay flakiness under parallel suite load.
+    /// </summary>
+    private async Task WaitForPingsAsync(int expected)
+    {
+        for (var i = 0; i < 150 && Volatile.Read(ref _pingCount) < expected; i++)
+            await Task.Delay(20);
+    }
+
     // ===== Pipeline Flow =====
 
     [Fact]
@@ -116,8 +128,8 @@ public class ActivityPingMiddlewareTests
 
         await middleware.InvokeAsync(context);
 
-        // Wait briefly for fire-and-forget to execute
-        await Task.Delay(100);
+        // Wait (poll) for the fire-and-forget ping to execute
+        await WaitForPingsAsync(1);
 
         _httpHandlerMock.Protected().Verify(
             "SendAsync",
@@ -136,7 +148,7 @@ public class ActivityPingMiddlewareTests
         await middleware.InvokeAsync(context1);
         await Task.Delay(50);
         await middleware.InvokeAsync(context2);
-        await Task.Delay(100);
+        await WaitForPingsAsync(1);
 
         // Only 1 ping should have been sent (debounced)
         _httpHandlerMock.Protected().Verify(
@@ -155,7 +167,7 @@ public class ActivityPingMiddlewareTests
 
         await middleware.InvokeAsync(ctx1);
         await middleware.InvokeAsync(ctx2);
-        await Task.Delay(200);
+        await WaitForPingsAsync(2);
 
         _httpHandlerMock.Protected().Verify(
             "SendAsync",
