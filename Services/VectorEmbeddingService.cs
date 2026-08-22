@@ -1,3 +1,5 @@
+using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using UserService.Data;
@@ -6,23 +8,34 @@ using UserService.Models;
 namespace UserService.Services;
 
 /// <summary>
-/// T577 — Generates 128-dim reflection vectors from psykolog themes
-/// and computes cosine similarity between users.
+/// T577 — Generates reflection vectors from psykolog themes and computes
+/// cosine similarity between users.
 ///
-/// Uses a lightweight hashing approach instead of calling an external
-/// embedding API (keeps it free and self-contained). For production,
-/// swap GenerateEmbeddingAsync to call an OpenAI-compatible endpoint.
+/// Two paths:
+///   1. REAL embeddings (P1): when explicitly enabled via "Embeddings:Enabled":
+///      true (with an EMBEDDINGS_API_KEY or Embeddings:ApiKey), themes are
+///      embedded through an OpenAI-compatible /embeddings endpoint, producing
+///      semantically meaningful vectors at the provider's native dimension.
+///   2. HASH fallback (dev/demo, no provider configured): a deterministic
+///      128-dim bag-of-slots hash so the pipeline always yields a vector.
+/// When embeddings are expected but unavailable (no key / API failure) the
+/// vector is SKIPPED (empty array, nothing persisted) so no noise enters the
+/// 40% compatibility blend — CosineSimilarityAsync returns null in that case.
 /// </summary>
 public class VectorEmbeddingService : IVectorEmbeddingService
 {
     private readonly ApplicationDbContext _context;
     private readonly ILogger<VectorEmbeddingService> _logger;
+    private readonly IHttpClientFactory? _httpFactory;
+    private readonly IConfiguration? _config;
     private const int VectorDim = 128;
 
     public VectorEmbeddingService(ApplicationDbContext context, ILogger<VectorEmbeddingService> logger, IHttpClientFactory httpFactory = null!, IConfiguration config = null!)
     {
         _context = context;
         _logger = logger;
+        _httpFactory = httpFactory;
+        _config = config;
     }
 
     /// <summary>
@@ -39,7 +52,16 @@ public class VectorEmbeddingService : IVectorEmbeddingService
 
         var themeSessionCount = themes.Select(t => t.SessionId).Distinct().Count();
         var effectiveSessionCount = sessions > 0 ? sessions : themeSessionCount;
-        var embedding = BuildVectorFromThemes(themes, effectiveSessionCount);
+        var embedding = await GenerateEmbeddingAsync(themes, effectiveSessionCount, ct);
+
+        // Embeddings configured but unavailable (no key / API failure): skip
+        // instead of persisting noise. CosineSimilarityAsync returns null when
+        // no vector exists, so the 40% compatibility blend simply does not apply.
+        if (embedding.Length == 0)
+        {
+            _logger.LogWarning("Skipping vector update for {Id}: embeddings enabled but unavailable", keycloakId);
+            return embedding;
+        }
 
         var vector = await _context.ReflectionVectors
             .FirstOrDefaultAsync(v => v.KeycloakId == keycloakId, ct);
@@ -94,7 +116,127 @@ public class VectorEmbeddingService : IVectorEmbeddingService
         return CosineSimilarity(a, b);
     }
 
-    // ── Embedding generation (lightweight hash-based, no external API) ────
+    // ── Embedding generation ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Produce the reflection vector. Uses a real embedding API when configured
+    /// (see class doc), otherwise the deterministic hash fallback. Returns an
+    /// empty array when embeddings are expected but unavailable — the caller
+    /// skips persistence so no noise enters the 40% compatibility blend.
+    /// </summary>
+    private async Task<float[]> GenerateEmbeddingAsync(List<UserTheme> themes, int sessionCount, CancellationToken ct)
+    {
+        if (!IsEmbeddingEnabled)
+            return BuildVectorFromThemes(themes, sessionCount);
+
+        var apiKey = EmbeddingApiKey;
+        if (string.IsNullOrEmpty(apiKey))
+        {
+            _logger.LogError("Embeddings enabled but no API key (EMBEDDINGS_API_KEY / Embeddings:ApiKey) — vector skipped");
+            return Array.Empty<float>();
+        }
+
+        if (themes.Count == 0)
+            return Array.Empty<float>();
+
+        try
+        {
+            var vec = await EmbedThemesAsync(themes, apiKey, ct);
+            if (vec.Length == 0)
+            {
+                _logger.LogWarning("Embedding endpoint returned no vector — skipping");
+                return Array.Empty<float>();
+            }
+            return Normalize(vec);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Embedding call failed — vector skipped (no blend for this user)");
+            return Array.Empty<float>();
+        }
+    }
+
+    /// <summary>
+    /// Calls an OpenAI-compatible POST {baseUrl}/embeddings with the themes as
+    /// a single input string. Returns the provider vector at its native
+    /// dimension (any length); empty array on any failure. Storage is
+    /// <c>mediumtext</c> and cosine handles arbitrary equal-length vectors, so
+    /// no forced dimension is needed.
+    /// </summary>
+    private async Task<float[]> EmbedThemesAsync(List<UserTheme> themes, string apiKey, CancellationToken ct)
+    {
+        if (_httpFactory == null) return Array.Empty<float>();
+
+        var baseUrl = (EmbeddingBaseUrl ?? "https://api.openai.com/v1").TrimEnd('/');
+        var payload = JsonSerializer.Serialize(new
+        {
+            model = EmbeddingModel,
+            input = BuildEmbeddingText(themes)
+        });
+
+        var http = _httpFactory.CreateClient();
+        http.Timeout = TimeSpan.FromSeconds(EmbeddingTimeoutSeconds);
+        var req = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl}/embeddings")
+        {
+            Content = new StringContent(payload, Encoding.UTF8, "application/json")
+        };
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+
+        var resp = await http.SendAsync(req, ct);
+        if (!resp.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("Embedding endpoint returned {Status}", (int)resp.StatusCode);
+            return Array.Empty<float>();
+        }
+
+        using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct));
+        if (!doc.RootElement.TryGetProperty("data", out var data) || data.GetArrayLength() == 0)
+            return Array.Empty<float>();
+
+        var floats = new List<float>();
+        foreach (var v in data[0].GetProperty("embedding").EnumerateArray())
+            floats.Add(v.GetSingle());
+        return floats.ToArray();
+    }
+
+    /// <summary>Compact input text for the embedding model, e.g. "Openness (BigFive) intensity 0.8; ..."</summary>
+    private static string BuildEmbeddingText(IEnumerable<UserTheme> themes) =>
+        string.Join("; ", themes.Select(t => $"{t.Label} ({t.Axis}) intensity {t.Intensity:F1}"));
+
+    private static float[] Normalize(float[] vec)
+    {
+        var magnitude = (float)Math.Sqrt(vec.Sum(v => (double)v * v));
+        if (magnitude <= 0) return vec;
+        for (var i = 0; i < vec.Length; i++) vec[i] /= magnitude;
+        return vec;
+    }
+
+    // ── Configuration ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Embeddings are used only when explicitly enabled via
+    /// "Embeddings:Enabled": true. The API key may come from the
+    /// EMBEDDINGS_API_KEY environment variable or "Embeddings:ApiKey"
+    /// (never checked into appsettings).
+    /// </summary>
+    private bool IsEmbeddingEnabled =>
+        _config != null
+        && bool.TryParse(_config["Embeddings:Enabled"], out var enabled)
+        && enabled;
+
+    private string EmbeddingApiKey =>
+        Environment.GetEnvironmentVariable("EMBEDDINGS_API_KEY")
+        ?? _config?["Embeddings:ApiKey"]
+        ?? string.Empty;
+
+    private string EmbeddingBaseUrl => _config?["Embeddings:BaseUrl"] ?? "https://api.openai.com/v1";
+
+    private string EmbeddingModel => _config?["Embeddings:Model"] ?? "text-embedding-3-small";
+
+    private int EmbeddingTimeoutSeconds =>
+        int.TryParse(_config?["Embeddings:TimeoutSeconds"], out var t) ? t : 20;
+
+    // ── Hash fallback (dev/demo, no provider configured) ──────────────────
 
     public static float[] BuildVectorFromThemes(IEnumerable<UserTheme> themes, int sessionCount = 0)
     {

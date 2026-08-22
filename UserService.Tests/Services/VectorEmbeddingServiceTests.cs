@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -150,5 +151,115 @@ public class VectorEmbeddingServiceTests : IDisposable
         Assert.True(result!.Value > 0.99);
     }
 
+    // ── Real embedding path (P1) ─────────────────────────────────────────
+
+    [Fact]
+    public async Task UpdateVector_EmbeddingsEnabledButNoKey_SavesNothing()
+    {
+        var config = ConfigWithEmbeddings(enabled: true, apiKey: null);
+        _context.UserThemes.Add(new UserTheme
+        {
+            KeycloakId = "u1", Label = "Openness", Axis = "BigFive", Intensity = 0.8,
+            SessionId = 1, CreatedAt = DateTime.UtcNow
+        });
+        await _context.SaveChangesAsync();
+
+        var svc = BuildService(_context, config, new StubHandler(_ =>
+            new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{}") }));
+
+        var result = await svc.UpdateVectorAsync("u1");
+
+        Assert.Empty(result);
+        Assert.Empty(_context.ReflectionVectors.Where(r => r.KeycloakId == "u1"));
+    }
+
+    [Fact]
+    public async Task UpdateVector_EmbeddingsEnabledAndSuccess_PersistsProviderVector()
+    {
+        var config = ConfigWithEmbeddings(enabled: true);
+        _context.UserThemes.Add(new UserTheme
+        {
+            KeycloakId = "u2", Label = "Openness", Axis = "BigFive", Intensity = 0.8,
+            SessionId = 1, CreatedAt = DateTime.UtcNow
+        });
+        await _context.SaveChangesAsync();
+
+        var svc = BuildService(_context, config, new StubHandler(_ =>
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"data\":[{\"embedding\":[0.6,0.0,0.8]}]}")
+            }));
+
+        var result = await svc.UpdateVectorAsync("u2");
+
+        // Provider dimension preserved (no forced 128)
+        Assert.Equal(3, result.Length);
+
+        var row = _context.ReflectionVectors.Single(r => r.KeycloakId == "u2");
+        var stored = JsonSerializer.Deserialize<float[]>(row.VectorJson);
+        Assert.Equal(3, stored!.Length);
+
+        // L2-normalised: sqrt(0.6^2 + 0.8^2) == 1
+        var mag = Math.Sqrt(stored.Sum(v => (double)v * v));
+        Assert.True(Math.Abs(mag - 1.0) < 0.001, $"expected unit length, got {mag}");
+    }
+
+    [Fact]
+    public async Task UpdateVector_EmbeddingsEnabledButApiFails_SavesNothing()
+    {
+        var config = ConfigWithEmbeddings(enabled: true);
+        _context.UserThemes.Add(new UserTheme
+        {
+            KeycloakId = "u3", Label = "Openness", Axis = "BigFive", Intensity = 0.8,
+            SessionId = 1, CreatedAt = DateTime.UtcNow
+        });
+        await _context.SaveChangesAsync();
+
+        var svc = BuildService(_context, config,
+            new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError)));
+
+        var result = await svc.UpdateVectorAsync("u3");
+
+        Assert.Empty(result);
+        Assert.Empty(_context.ReflectionVectors.Where(r => r.KeycloakId == "u3"));
+    }
+
     public void Dispose() => _context.Dispose();
+
+    // ── Helpers (real embedding path) ─────────────────────────────────────
+
+    private static IConfiguration ConfigWithEmbeddings(bool enabled, string? apiKey = "test-key") =>
+        new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Embeddings:Enabled"] = enabled ? "true" : "false",
+            ["Embeddings:ApiKey"] = apiKey ?? string.Empty,
+            ["Embeddings:BaseUrl"] = "https://embeddings.test/v1",
+            ["Embeddings:Model"] = "test-embed",
+            ["Embeddings:TimeoutSeconds"] = "5",
+        }).Build();
+
+    private static VectorEmbeddingService BuildService(
+        ApplicationDbContext ctx,
+        IConfiguration config,
+        HttpMessageHandler handler)
+    {
+        var factory = new Mock<IHttpClientFactory>();
+        factory.Setup(f => f.CreateClient(It.IsAny<string>()))
+            .Returns(new HttpClient(handler));
+        return new VectorEmbeddingService(
+            ctx,
+            new Mock<ILogger<VectorEmbeddingService>>().Object,
+            factory.Object,
+            config);
+    }
+
+    private sealed class StubHandler : HttpMessageHandler
+    {
+        private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder;
+        public StubHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) => _responder = responder;
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(_responder(request));
+    }
 }
