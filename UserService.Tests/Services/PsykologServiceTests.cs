@@ -22,7 +22,7 @@ public class PsykologServiceTests : IDisposable
 {
     private readonly ApplicationDbContext _db;
     private readonly Mock<IHttpClientFactory> _httpFactory;
-    private readonly IPsykologService _svc;
+    private IPsykologService _svc;
 
     public PsykologServiceTests()
     {
@@ -31,8 +31,31 @@ public class PsykologServiceTests : IDisposable
             .Options;
         _db = new ApplicationDbContext(opts);
         _httpFactory = new Mock<IHttpClientFactory>();
-        _svc = new PsykologService(_db, _httpFactory.Object, Mock.Of<ILogger<PsykologService>>(), Mock.Of<IVectorEmbeddingService>(), Mock.Of<IConfiguration>());
+        _svc = CreateService(Mock.Of<IConfiguration>());
     }
+
+    private IPsykologService CreateService(IConfiguration config, IFeatureGate? gate = null)
+    {
+        if (gate == null)
+        {
+            var g = new Mock<IFeatureGate>();
+            g.Setup(x => x.IsPremium(It.IsAny<string>())).ReturnsAsync(false);
+            gate = g.Object;
+        }
+
+        return new PsykologService(
+            _db,
+            _httpFactory.Object,
+            Mock.Of<ILogger<PsykologService>>(),
+            Mock.Of<IVectorEmbeddingService>(),
+            config,
+            gate);
+    }
+
+    private static IConfiguration Config(params (string Key, string Value)[] entries) =>
+        new ConfigurationBuilder()
+            .AddInMemoryCollection(entries.ToDictionary(e => e.Key, e => (string?)e.Value))
+            .Build();
 
     public void Dispose() => _db.Dispose();
 
@@ -49,15 +72,11 @@ public class PsykologServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task StartSession_SecondSessionSameMonth_ReturnsNull()
+    public async Task StartSession_ConfiguredLimit_BlocksWhenExceeded()
     {
-        // First session succeeds
-        var first = await _svc.StartSessionAsync("user-2");
-        Assert.NotNull(first);
-
-        // Second session this month blocked (free limit = 1)
-        var second = await _svc.StartSessionAsync("user-2");
-        Assert.Null(second);
+        _svc = CreateService(Config(("Psykolog:FreeMonthlySessionLimit", "1")));
+        Assert.NotNull(await _svc.StartSessionAsync("user-2"));
+        Assert.Null(await _svc.StartSessionAsync("user-2"));
     }
 
     [Fact]
@@ -159,5 +178,91 @@ public class PsykologServiceTests : IDisposable
         var themes = await _svc.GetThemesAsync("user-10");
         Assert.Single(themes);
         Assert.Equal("openness", themes[0].Label);
+    }
+
+    // ── Limits: configurable + premium ─────────────────────────────────────
+
+    [Fact]
+    public async Task StartSession_DefaultLimit_AllowsMoreThanOne()
+    {
+        // Default config: 5 free sessions/month — open to everyone now.
+        Assert.NotNull(await _svc.StartSessionAsync("u-free"));
+        Assert.NotNull(await _svc.StartSessionAsync("u-free"));
+    }
+
+    [Fact]
+    public async Task StartSession_PremiumBypassesFreeLimit()
+    {
+        var gate = new Mock<IFeatureGate>();
+        gate.Setup(g => g.IsPremium(It.IsAny<string>())).ReturnsAsync(true);
+        _svc = CreateService(Config(("Psykolog:FreeMonthlySessionLimit", "1")), gate.Object);
+
+        Assert.NotNull(await _svc.StartSessionAsync("u-prem"));
+        Assert.NotNull(await _svc.StartSessionAsync("u-prem")); // not blocked at free limit 1
+    }
+
+    [Fact]
+    public async Task SendMessage_RespectsConfiguredMessageLimit()
+    {
+        Environment.SetEnvironmentVariable("GROQ_API_KEY", null);
+        _svc = CreateService(Config(("Psykolog:FreeMessageLimit", "1")));
+        var s = await _svc.StartSessionAsync("u-msg");
+        Assert.NotNull(await _svc.SendMessageAsync(s!.Id, "u-msg", "Hej"));
+        // 2 stored (user+assistant) >= limit*2 → blocked
+        Assert.Null(await _svc.SendMessageAsync(s!.Id, "u-msg", "Hej igen"));
+    }
+
+    [Fact]
+    public async Task SendMessage_PremiumUsesPremiumLimit()
+    {
+        Environment.SetEnvironmentVariable("GROQ_API_KEY", null);
+        var gate = new Mock<IFeatureGate>();
+        gate.Setup(g => g.IsPremium(It.IsAny<string>())).ReturnsAsync(true);
+        _svc = CreateService(Config(("Psykolog:FreeMessageLimit", "1"), ("Psykolog:PremiumMessageLimit", "10")), gate.Object);
+        var s = await _svc.StartSessionAsync("u-prem-msg");
+        Assert.NotNull(await _svc.SendMessageAsync(s!.Id, "u-prem-msg", "Hej"));
+        Assert.NotNull(await _svc.SendMessageAsync(s!.Id, "u-prem-msg", "Hej igen"));
+    }
+
+    // ── Transcript (re-read) ──────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetMessages_ReturnsOwnTranscript()
+    {
+        Environment.SetEnvironmentVariable("GROQ_API_KEY", null);
+        var s = await _svc.StartSessionAsync("u-transcript");
+        await _svc.SendMessageAsync(s!.Id, "u-transcript", "Jag känner mig ensam");
+
+        var messages = await _svc.GetMessagesAsync(s.Id, "u-transcript");
+        Assert.NotNull(messages);
+        Assert.Contains(messages!, m => m.Role == PsykologRole.User && m.Content == "Jag känner mig ensam");
+        Assert.Contains(messages!, m => m.Role == PsykologRole.Assistant);
+    }
+
+    [Fact]
+    public async Task GetMessages_WrongUser_ReturnsNull()
+    {
+        Environment.SetEnvironmentVariable("GROQ_API_KEY", null);
+        var s = await _svc.StartSessionAsync("u-owner");
+        Assert.Null(await _svc.GetMessagesAsync(s!.Id, "intruder"));
+    }
+
+    // ── Stale session expiry ──────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetSessions_ExpiresStaleActiveSession()
+    {
+        _svc = CreateService(Config(("Psykolog:MaxSessionAgeMinutes", "0")));
+        _db.PsykologSessions.Add(new PsykologSession
+        {
+            KeycloakId = "u-stale",
+            StartedAt = DateTime.UtcNow.AddMinutes(-5),
+            Status = PsykologSessionStatus.Active,
+            SessionNumber = 1
+        });
+        await _db.SaveChangesAsync();
+
+        var sessions = await _svc.GetSessionsAsync("u-stale");
+        Assert.All(sessions, s => Assert.Equal(PsykologSessionStatus.Completed, s.Status));
     }
 }

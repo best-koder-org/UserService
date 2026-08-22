@@ -14,13 +14,18 @@ public interface IPsykologService
     Task<PsykologSession?> EndSessionAsync(int sessionId, string keycloakId);
     Task<List<PsykologSession>> GetSessionsAsync(string keycloakId);
     Task<List<UserTheme>> GetThemesAsync(string keycloakId);
+    Task<List<PsykologMessage>?> GetMessagesAsync(int sessionId, string keycloakId);
 }
 
 public class PsykologService : IPsykologService
 {
-    private const int FreeMonthlySessionLimit = 1;
-    private const int FreeMessageLimit = 30;
-    private const int PremiumMessageLimit = 50;
+    // Limits come from configuration (Psykolog:* section) so they can be tuned
+    // per environment and gated behind premium later. Generous defaults keep the
+    // feature open to everyone now; premium flips to the higher set automatically.
+    private int FreeMonthlySessionLimit => ReadInt("Psykolog:FreeMonthlySessionLimit", 5);
+    private int PremiumMonthlySessionLimit => ReadInt("Psykolog:PremiumMonthlySessionLimit", 0); // 0 = unlimited
+    private int FreeMessageLimit => ReadInt("Psykolog:FreeMessageLimit", 30);
+    private int PremiumMessageLimit => ReadInt("Psykolog:PremiumMessageLimit", 60);
     private const string GroqBaseUrl = "https://api.groq.com/openai/v1/chat/completions";
     private const string GroqModel = "llama-3.3-70b-versatile";
 
@@ -99,24 +104,41 @@ public class PsykologService : IPsykologService
     private readonly ILogger<PsykologService> _logger;
     private readonly IVectorEmbeddingService _vectorService;
     private readonly IConfiguration _configuration;
+    private readonly IFeatureGate _featureGate;
 
-    public PsykologService(ApplicationDbContext db, IHttpClientFactory httpFactory, ILogger<PsykologService> logger, IVectorEmbeddingService vectorService, IConfiguration configuration)
+    public PsykologService(
+        ApplicationDbContext db,
+        IHttpClientFactory httpFactory,
+        ILogger<PsykologService> logger,
+        IVectorEmbeddingService vectorService,
+        IConfiguration configuration,
+        IFeatureGate featureGate)
     {
         _db = db;
         _httpFactory = httpFactory;
         _logger = logger;
         _vectorService = vectorService;
         _configuration = configuration;
+        _featureGate = featureGate;
     }
+
+    private int ReadInt(string key, int def) =>
+        int.TryParse(_configuration[key], out var v) ? v : def;
 
     public async Task<PsykologSession?> StartSessionAsync(string keycloakId)
     {
-        // Monthly limit check for free users (simple: count sessions this calendar month)
+        // Expire any stale abandoned sessions first (so they extract themes once)
+        await ExpireStaleSessionsAsync(keycloakId);
+
+        // Monthly limit check (configurable; premium can be unlimited)
+        var premium = await _featureGate.IsPremium(keycloakId);
+        var monthlyLimit = premium ? PremiumMonthlySessionLimit : FreeMonthlySessionLimit;
+
         var firstOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         var sessionsThisMonth = await _db.PsykologSessions
             .CountAsync(s => s.KeycloakId == keycloakId && s.StartedAt >= firstOfMonth);
 
-        if (sessionsThisMonth >= FreeMonthlySessionLimit)
+        if (monthlyLimit > 0 && sessionsThisMonth >= monthlyLimit)
             return null; // caller returns 429
 
         var sessionNumber = await _db.PsykologSessions
@@ -146,7 +168,8 @@ public class PsykologService : IPsykologService
 
         if (session == null) return null;
 
-        var limit = FreeMessageLimit; // TODO: check premium entitlement
+        var premium = await _featureGate.IsPremium(keycloakId);
+        var limit = premium ? PremiumMessageLimit : FreeMessageLimit;
         if (session.Messages.Count >= limit * 2) // user + assistant pairs
             return null; // caller returns 429
 
@@ -188,8 +211,13 @@ public class PsykologService : IPsykologService
         return session;
     }
 
-    public Task<List<PsykologSession>> GetSessionsAsync(string keycloakId) =>
-        _db.PsykologSessions
+    public async Task<List<PsykologSession>> GetSessionsAsync(string keycloakId)
+    {
+        // Lazily expire stale active sessions so abandoned sessions still
+        // extract themes once and don't linger as "active" forever.
+        await ExpireStaleSessionsAsync(keycloakId);
+
+        return await _db.PsykologSessions
             .Where(s => s.KeycloakId == keycloakId)
             .OrderByDescending(s => s.StartedAt)
             .Select(s => new PsykologSession
@@ -203,6 +231,50 @@ public class PsykologService : IPsykologService
                 SessionNumber = s.SessionNumber
             })
             .ToListAsync();
+    }
+
+    /// <summary>Re-read a session's full transcript (owner only). Null if not found/not owned.</summary>
+    public async Task<List<PsykologMessage>?> GetMessagesAsync(int sessionId, string keycloakId)
+    {
+        var owned = await _db.PsykologSessions
+            .AnyAsync(s => s.Id == sessionId && s.KeycloakId == keycloakId);
+        if (!owned) return null;
+
+        return await _db.PsykologMessages
+            .Where(m => m.SessionId == sessionId)
+            .OrderBy(m => m.CreatedAt)
+            .ToListAsync();
+    }
+
+    /// <summary>
+    /// Marks Active sessions older than Psykolog:MaxSessionAgeMinutes (default
+    /// 6h) as Completed and kicks off theme extraction once. Keeps abandoned
+    /// sessions from lingering and still feeds the vector pipeline.
+    /// </summary>
+    private async Task ExpireStaleSessionsAsync(string keycloakId)
+    {
+        var maxAge = TimeSpan.FromMinutes(ReadInt("Psykolog:MaxSessionAgeMinutes", 360));
+        var cutoff = DateTime.UtcNow.Subtract(maxAge);
+
+        var stale = await _db.PsykologSessions
+            .Where(s => s.KeycloakId == keycloakId
+                && s.Status == PsykologSessionStatus.Active
+                && s.StartedAt < cutoff)
+            .ToListAsync();
+
+        if (stale.Count == 0) return;
+
+        foreach (var s in stale)
+        {
+            s.Status = PsykologSessionStatus.Completed;
+            s.EndedAt = DateTime.UtcNow;
+            _logger.LogInformation("Auto-expiring stale psykolog session {Id} for {User}", s.Id, keycloakId);
+        }
+        await _db.SaveChangesAsync();
+
+        foreach (var s in stale)
+            _ = ExtractThemesAsync(s);
+    }
 
     public Task<List<UserTheme>> GetThemesAsync(string keycloakId) =>
         _db.UserThemes
@@ -294,9 +366,9 @@ public class PsykologService : IPsykologService
             _db.UserThemes.AddRange(themes);
             session.ThemeCount = themes.Count;
 
-            // Purge messages after extraction (privacy by design)
-            _db.PsykologMessages.RemoveRange(session.Messages);
-
+            // Transcript is intentionally KEPT so users can re-read past
+            // reflections ("Din resa"). Session deletion (GDPR) is handled
+            // separately; themes + vectors drive matching.
             await _db.SaveChangesAsync();
             _logger.LogInformation("Extracted {Count} themes for session {SessionId}", themes.Count, session.Id);
 

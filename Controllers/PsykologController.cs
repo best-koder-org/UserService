@@ -101,6 +101,21 @@ public class PsykologController : ControllerBase
         }));
     }
 
+    // GET /api/psykolog/sessions/{id}/messages — re-read a session transcript (owner only)
+    [HttpGet("sessions/{id:int}/messages")]
+    public async Task<IActionResult> GetMessages(int id)
+    {
+        var messages = await _psykolog.GetMessagesAsync(id, GetUserId());
+        if (messages == null) return NotFound();
+        return Ok(messages.Select(m => new
+        {
+            m.Id,
+            Role = m.Role.ToString(),
+            m.Content,
+            m.CreatedAt
+        }));
+    }
+
     // GET /api/psykolog/vector-similarity/{otherKeycloakId}
     [HttpGet("vector-similarity/{otherKeycloakId}")]
     public async Task<IActionResult> GetVectorSimilarity(string otherKeycloakId)
