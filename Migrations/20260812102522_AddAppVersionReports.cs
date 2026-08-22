@@ -12,12 +12,16 @@ namespace UserService.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<bool>(
-                name: "ReadReceiptsEnabled",
-                table: "UserProfiles",
-                type: "tinyint(1)",
-                nullable: false,
-                defaultValue: false);
+            // Idempotent column-add: some databases already have ReadReceiptsEnabled
+            // (updated out-of-band). MySQL 8 lacks ADD COLUMN IF NOT EXISTS, so guard
+            // via information_schema. Safe on fresh DBs (column missing → it is added).
+            migrationBuilder.Sql(@"
+                SET @rr := (SELECT COUNT(*) FROM information_schema.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'UserProfiles' AND COLUMN_NAME = 'ReadReceiptsEnabled');
+                SET @ddl := IF(@rr = 0,
+                    'ALTER TABLE UserProfiles ADD COLUMN ReadReceiptsEnabled TINYINT(1) NOT NULL DEFAULT FALSE',
+                    'SELECT 1');
+                PREPARE s FROM @ddl; EXECUTE s; DEALLOCATE PREPARE s;");
 
             migrationBuilder.AddColumn<string>(
                 name: "WeakestAxesJson",
