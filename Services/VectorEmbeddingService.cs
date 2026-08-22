@@ -130,9 +130,9 @@ public class VectorEmbeddingService : IVectorEmbeddingService
             return BuildVectorFromThemes(themes, sessionCount);
 
         var apiKey = EmbeddingApiKey;
-        if (string.IsNullOrEmpty(apiKey))
+        if (string.IsNullOrEmpty(apiKey) && RequireApiKey)
         {
-            _logger.LogError("Embeddings enabled but no API key (EMBEDDINGS_API_KEY / Embeddings:ApiKey) — vector skipped");
+            _logger.LogError("Embeddings enabled but no API key (EMBEDDINGS_API_KEY / Embeddings:ApiKey) and RequireApiKey=true — vector skipped. Set Embeddings:RequireApiKey=false for keyless local endpoints (Ollama/llama.cpp).");
             return Array.Empty<float>();
         }
 
@@ -180,7 +180,10 @@ public class VectorEmbeddingService : IVectorEmbeddingService
         {
             Content = new StringContent(payload, Encoding.UTF8, "application/json")
         };
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        // Local providers (Ollama, llama.cpp) accept keyless requests — only
+        // attach an Authorization header when a key is actually configured.
+        if (!string.IsNullOrEmpty(apiKey))
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
 
         var resp = await http.SendAsync(req, ct);
         if (!resp.IsSuccessStatusCode)
@@ -223,6 +226,17 @@ public class VectorEmbeddingService : IVectorEmbeddingService
         _config != null
         && bool.TryParse(_config["Embeddings:Enabled"], out var enabled)
         && enabled;
+
+    /// <summary>
+    /// When true (default) a non-empty API key is required and embeddings are
+    /// skipped when none is set (cloud fail-safe — no silent noise). Set
+    /// Embeddings:RequireApiKey=false for keyless local endpoints (Ollama,
+    /// llama.cpp): the request is then sent without an Authorization header.
+    /// </summary>
+    private bool RequireApiKey =>
+        _config == null
+        || !bool.TryParse(_config["Embeddings:RequireApiKey"], out var v)
+        || v;
 
     private string EmbeddingApiKey =>
         Environment.GetEnvironmentVariable("EMBEDDINGS_API_KEY")

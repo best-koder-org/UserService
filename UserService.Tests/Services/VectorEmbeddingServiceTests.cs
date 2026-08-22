@@ -224,14 +224,65 @@ public class VectorEmbeddingServiceTests : IDisposable
         Assert.Empty(_context.ReflectionVectors.Where(r => r.KeycloakId == "u3"));
     }
 
+    [Fact]
+    public async Task UpdateVector_EmbeddingsLocalKeyless_SucceedsAndSendsNoAuth()
+    {
+        var config = ConfigWithEmbeddings(enabled: true, requireApiKey: false, apiKey: null);
+        _context.UserThemes.Add(new UserTheme
+        {
+            KeycloakId = "u4", Label = "Warmth", Axis = "Values", Intensity = 0.7,
+            SessionId = 1, CreatedAt = DateTime.UtcNow
+        });
+        await _context.SaveChangesAsync();
+
+        HttpRequestMessage? captured = null;
+        var svc = BuildService(_context, config, new StubHandler(req =>
+        {
+            captured = req;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"data\":[{\"embedding\":[0.5,0.5]}]}")
+            };
+        }));
+
+        var result = await svc.UpdateVectorAsync("u4");
+
+        Assert.Equal(2, result.Length);
+        Assert.NotNull(captured);
+        Assert.Null(captured!.Headers.Authorization); // keyless local: no auth header
+        Assert.Single(_context.ReflectionVectors.Where(r => r.KeycloakId == "u4"));
+    }
+
+    [Fact]
+    public async Task UpdateVector_EmbeddingsCloudRequiresKey_StillSkips()
+    {
+        // Default RequireApiKey=true (cloud fail-safe): missing key -> skip, save nothing.
+        var config = ConfigWithEmbeddings(enabled: true, requireApiKey: true, apiKey: null);
+        _context.UserThemes.Add(new UserTheme
+        {
+            KeycloakId = "u5", Label = "Warmth", Axis = "Values", Intensity = 0.7,
+            SessionId = 1, CreatedAt = DateTime.UtcNow
+        });
+        await _context.SaveChangesAsync();
+
+        var svc = BuildService(_context, config, new StubHandler(_ =>
+            new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{}") }));
+
+        var result = await svc.UpdateVectorAsync("u5");
+
+        Assert.Empty(result);
+        Assert.Empty(_context.ReflectionVectors.Where(r => r.KeycloakId == "u5"));
+    }
+
     public void Dispose() => _context.Dispose();
 
     // ── Helpers (real embedding path) ─────────────────────────────────────
 
-    private static IConfiguration ConfigWithEmbeddings(bool enabled, string? apiKey = "test-key") =>
+    private static IConfiguration ConfigWithEmbeddings(bool enabled, bool requireApiKey = true, string? apiKey = "test-key") =>
         new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["Embeddings:Enabled"] = enabled ? "true" : "false",
+            ["Embeddings:RequireApiKey"] = requireApiKey ? "true" : "false",
             ["Embeddings:ApiKey"] = apiKey ?? string.Empty,
             ["Embeddings:BaseUrl"] = "https://embeddings.test/v1",
             ["Embeddings:Model"] = "test-embed",
