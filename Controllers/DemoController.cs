@@ -250,11 +250,6 @@ namespace UserService.Controllers
                     });
                 }
 
-                // Voice prompt for every 3rd profile
-                string? voicePromptUrl = (i % 3 == 0)
-                    ? $"https://example.com/voice-prompts/profile-{i + 1}.m4a"
-                    : null;
-
                 profiles.Add(new UserProfileSummaryDto
                 {
                     Id = i + 1,
@@ -270,7 +265,7 @@ namespace UserService.Controllers
                     Gender = genders[i % genders.Length],
                     Interests = interests[interestIndex].ToList(),
                     Prompts = prompts,
-                    VoicePromptUrl = voicePromptUrl,
+                    VoicePromptUrl = null, // real prompts surface via photo-service + Matchmaking enrichment
                     IsVerified = i % 3 == 0,
                     IsOnline = i % 4 != 0,
                     LastActiveAt = DateTime.UtcNow.AddMinutes(-Random.Shared.Next(0, 1440))

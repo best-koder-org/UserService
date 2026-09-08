@@ -80,18 +80,16 @@ public class DemoControllerTests
     }
 
     [Fact]
-    public void GetDemoProfiles_VoicePromptUrlPattern()
+    public void GetDemoProfiles_NoFakeVoicePromptUrls()
     {
-        // Every 3rd profile (i % 3 == 0) should have a voice prompt URL
+        // Demo profiles no longer fabricate voice prompt URLs (they pointed at dead
+        // example.com links). Real prompts come from photo-service via Matchmaking.
         var result = _controller.GetDemoProfiles(count: 6);
 
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
         var profiles = Assert.IsType<List<UserProfileSummaryDto>>(okResult.Value);
 
-        Assert.NotNull(profiles[0].VoicePromptUrl); // i=0: 0%3==0
-        Assert.Null(profiles[1].VoicePromptUrl);    // i=1
-        Assert.Null(profiles[2].VoicePromptUrl);    // i=2
-        Assert.NotNull(profiles[3].VoicePromptUrl); // i=3: 3%3==0
+        Assert.All(profiles, p => Assert.Null(p.VoicePromptUrl));
     }
 
     // ======================== GET DEMO PROFILE BY ID ========================
