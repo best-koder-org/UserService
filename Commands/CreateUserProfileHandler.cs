@@ -79,7 +79,8 @@ public class CreateUserProfileHandler : IRequestHandler<CreateUserProfileCommand
                 IsActive = true,
                 IsOnline = true,
                 UserId = request.UserId,
-                IsBot = request.IsBot || request.Email.EndsWith("@bot.local", StringComparison.OrdinalIgnoreCase)
+                IsBot = request.IsBot || request.Email.EndsWith("@bot.local", StringComparison.OrdinalIgnoreCase),
+                IsFakeProfile = request.IsFakeProfile || request.Email.StartsWith("bot_", StringComparison.OrdinalIgnoreCase)
             };
 
             _context.UserProfiles.Add(userProfile);
@@ -130,7 +131,9 @@ public class CreateUserProfileHandler : IRequestHandler<CreateUserProfileCommand
                 SubscriptionType = userProfile.SubscriptionType,
                 CreatedAt = userProfile.CreatedAt,
                 LastActiveAt = userProfile.LastActiveAt,
-                IsOnline = userProfile.IsOnline
+                IsOnline = userProfile.IsOnline,
+                IsBot = userProfile.IsBot,
+                IsFakeProfile = userProfile.IsFakeProfile
             };
 
             return Result<UserProfileDetailDto>.Success(profileDto);

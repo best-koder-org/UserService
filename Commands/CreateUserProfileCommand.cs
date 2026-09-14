@@ -36,4 +36,12 @@ public class CreateUserProfileCommand : IRequest<Result<UserProfileDetailDto>>
 
     /// <summary>Auto-detected from email domain — true for bot_*@bot.local</summary>
     public bool IsBot { get; set; } = false;
+
+    /// <summary>
+    /// Set by the seeder for internal/dev/test profiles (e.g. demo-user). When true the
+    /// matchmaking service will never include this profile in any real-user's candidate
+    /// deck, and the Flutter UI surfaces it as a "test" account. Auto-derived from
+    /// email local-part containing "demo" if omitted.
+    /// </summary>
+    public bool IsFakeProfile { get; set; } = false;
 }

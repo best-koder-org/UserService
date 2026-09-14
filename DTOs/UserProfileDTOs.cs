@@ -12,6 +12,12 @@ namespace UserService.DTOs
         [EmailAddress]
         public string Email { get; set; } = string.Empty;
 
+        /// <summary>Server-side: true for bot personas. Derived from email (@bot.local) if omitted.</summary>
+        public bool IsBot { get; set; }
+
+        /// <summary>Server-side: true for internal/dev/test profiles. Hidden from real users.</summary>
+        public bool IsFakeProfile { get; set; }
+
         [StringLength(1000)]
         public string Bio { get; set; } = string.Empty;
 
@@ -142,6 +148,8 @@ namespace UserService.DTOs
         public bool IsOnline { get; set; }
         public DateTime LastActiveAt { get; set; }
         public double? Distance { get; set; }
+        public bool IsBot { get; set; }
+        public bool IsFakeProfile { get; set; }
     }
 
     public class PromptAnswer
@@ -212,6 +220,9 @@ namespace UserService.DTOs
         // Onboarding wizard status
         public Models.OnboardingStatus OnboardingStatus { get; set; }
         public DateTime? OnboardingCompletedAt { get; set; }
+
+        public bool IsBot { get; set; }
+        public bool IsFakeProfile { get; set; }
     }
 
     public class SearchUsersDto
